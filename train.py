@@ -230,6 +230,8 @@ parser.add_argument('--dist-bn', type=str, default='',
                     help='Distribute BatchNorm stats between nodes after each epoch ("broadcast", "reduce", or "")')
 parser.add_argument('--split-bn', action='store_true',
                     help='Enable separate BN layers per augmentation split.')
+parser.add_argument('--disable_bn', action='store_true',
+                    help='Disable batch normalization.')
 
 # Model Exponential Moving Average
 parser.add_argument('--model-ema', action='store_true', default=False,
@@ -358,6 +360,7 @@ def main():
         bn_tf=args.bn_tf,
         bn_momentum=args.bn_momentum,
         bn_eps=args.bn_eps,
+        disable_bn=args.disable_bn,
         scriptable=args.torchscript,
         checkpoint_path=args.initial_checkpoint)
     if args.num_classes is None:
