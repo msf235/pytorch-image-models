@@ -61,7 +61,12 @@ class CheckpointSaver:
         assert self.max_history >= 1
 
     def save_checkpoint(self, epoch, metric=None):
-        assert epoch >= 0
+        if metric == 'keep':
+            save_path = os.path.join(self.checkpoint_dir, f'kept_{epoch}' \
+                                     + self.extension)
+            self._save(save_path, epoch, metric)
+            return (None, None)
+        # assert epoch >= 0
         tmp_save_path = os.path.join(self.checkpoint_dir, 'tmp' + self.extension)
         last_save_path = os.path.join(self.checkpoint_dir, 'last' + self.extension)
         self._save(tmp_save_path, epoch, metric)
@@ -130,7 +135,7 @@ class CheckpointSaver:
         self.checkpoint_files = self.checkpoint_files[:delete_index]
 
     def save_recovery(self, epoch, batch_idx=0):
-        assert epoch >= 0
+        # assert epoch >= 0
         filename = '-'.join([self.recovery_prefix, str(epoch), str(batch_idx)]) + self.extension
         save_path = os.path.join(self.recovery_dir, filename)
         self._save(save_path, epoch)

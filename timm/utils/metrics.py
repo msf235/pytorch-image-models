@@ -2,6 +2,7 @@
 
 Hacked together by / Copyright 2020 Ross Wightman
 """
+import torch
 
 
 class AverageMeter:
@@ -30,3 +31,15 @@ def accuracy(output, target, topk=(1,)):
     pred = pred.t()
     correct = pred.eq(target.reshape(1, -1).expand_as(pred))
     return [correct[:k].reshape(-1).float().sum(0) * 100. / batch_size for k in topk]
+
+
+def get_pr_dim(X, preserve_gradients=True):
+    # X_centered = X - np.mean(X, axis=0)
+    # C = X_centered.T @ X_centered / (X.shape[0]-1)
+    N = X.shape[0]
+    X_centered = X-torch.mean(X, dim=0)
+    if X.shape[0] < X.shape[1]:
+        X_centered = X_centered.T
+    C = X_centered.T@X_centered/(N-1)
+    eigs = torch.symeig(C, eigenvectors=preserve_gradients)[0]
+    return torch.sum(eigs)**2/torch.sum(eigs**2)

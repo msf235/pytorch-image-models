@@ -11,7 +11,7 @@
 #SBATCH -o %j.out # STDOUT
 #SBATCH -e %j.err # STDERR
 #python $1
-python train.py /n/pehlevan_lab/Lab/matthew/imagenet/ILSVRC/Data/CLS-LOC \
+./distributed_train.sh 4 train.py /n/pehlevan_lab/Lab/matthew/imagenet/ILSVRC/Data/CLS-LOC \
 --model efficientnet_b2 -b 128 --sched step --epochs 450 --decay-epochs 2.4 \
 --decay-rate .97 --opt rmsproptf --opt-eps .001 -j 8 --warmup-lr 1e-6 \
 --weight-decay 1e-5 --drop 0.3 --drop-connect 0.2 --model-ema \

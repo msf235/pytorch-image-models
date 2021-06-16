@@ -638,18 +638,20 @@ def main():
         with open(os.path.join(output_dir, 'args.yaml'), 'w') as f:
             f.write(args_text)
 
-    saver_periodic = CheckpointSaver(
-        model=model, optimizer=optimizer, args=args, model_ema=model_ema, amp_scaler=loss_scaler,
-        checkpoint_dir=output_dir, recovery_dir=output_dir, decreasing=decreasing, max_history=args.checkpoint_hist)
+    # saver_periodic = CheckpointSaver(
+        # model=model, optimizer=optimizer, args=args, model_ema=model_ema, amp_scaler=loss_scaler,
+        # checkpoint_dir=output_dir, recovery_dir=output_dir, decreasing=decreasing, max_history=args.checkpoint_hist)
     try:
+        eval_metrics = validate(model, loader_eval, validate_loss_fn, args,
+                                amp_autocast=amp_autocast)
+        train_metrics = OrderedDict([('loss', -1)]) 
         if output_dir is not None:
-            eval_metrics = validate(model, loader_eval, validate_loss_fn, args,
-                                    amp_autocast=amp_autocast)
-            train_metrics = OrderedDict([('loss', -1)]) 
             update_summary(
                 'initial', train_metrics, eval_metrics, os.path.join(output_dir, 'summary.csv'),
                 write_header=True, log_wandb=args.log_wandb and has_wandb)
-        __, __  = saver_periodic.save_checkpoint('initial', metric='keep')
+        # __, __  = saver_periodic.save_checkpoint('initial', metric='keep')
+        if saver is not None:
+            __, __  = saver.save_checkpoint('initial', metric='keep')
         pretrain = args.dim_and_loss_pretrain or args.dim_pretrain
         if args.dim_and_loss_pretrain and args.dim_pretrain:
             raise AttributeError("Please set only one of dim_pretrain or dim_and_loss_pretrain to True")
@@ -661,7 +663,7 @@ def main():
             train_metrics = pretrain_epoch(
                 'pretrain', model, loader_pretrain, optimizer_pretrain, dim_loss,
                 pretrain_loss_fn, args, lr_scheduler=lr_scheduler_pretrain,
-                saver=saver_periodic, output_dir=output_dir, amp_autocast=amp_autocast,
+                saver=saver, output_dir=output_dir, amp_autocast=amp_autocast,
                 loss_scaler=loss_scaler, model_ema=model_ema,
                 mixup_fn=mixup_fn)
 
@@ -672,7 +674,9 @@ def main():
                     'pretrain', train_metrics, eval_metrics, os.path.join(output_dir, 'summary.csv'),
                     write_header=True, log_wandb=args.log_wandb and has_wandb)
 
-            __, __  = saver_periodic.save_checkpoint('dim_pretrain', metric='keep')
+            if saver is not None:
+                __, __  = saver.save_checkpoint('initial', metric='keep')
+            # __, __  = saver_periodic.save_checkpoint('dim_pretrain', metric='keep')
         # setup distributed training
         if args.distributed:
             if has_apex and use_amp != 'native':
@@ -691,7 +695,7 @@ def main():
 
             train_metrics = train_one_epoch(
                 epoch, model, loader_train, optimizer, train_loss_fn, args,
-                lr_scheduler=lr_scheduler, saver=saver_periodic, output_dir=output_dir,
+                lr_scheduler=lr_scheduler, saver=saver, output_dir=output_dir,
                 amp_autocast=amp_autocast, loss_scaler=loss_scaler, model_ema=model_ema, mixup_fn=mixup_fn)
 
             if args.distributed and args.dist_bn in ('broadcast', 'reduce'):
@@ -721,8 +725,8 @@ def main():
                 # save proper checkpoint with eval metric
                 save_metric = eval_metrics[eval_metric]
                 best_metric, best_epoch = saver.save_checkpoint(epoch, metric=save_metric)
-            if args.save_every > 0 and (epoch+1) % args.save_every == 0:
-                __, __  = saver_periodic.save_checkpoint(epoch, metric='keep')
+                if args.save_every > 0 and (epoch+1) % args.save_every == 0:
+                    __, __  = saver.save_checkpoint(epoch, metric='keep')
                             
 
     except KeyboardInterrupt:
