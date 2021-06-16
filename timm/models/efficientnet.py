@@ -415,7 +415,8 @@ class EfficientNet(nn.Module):
 
     def __init__(self, block_args, num_classes=1000, num_features=1280, in_chans=3, stem_size=32, fix_stem=False,
                  output_stride=32, pad_type='', round_chs_fn=round_channels, act_layer=None, norm_layer=None,
-                 se_layer=None, drop_rate=0., drop_path_rate=0., global_pool='avg'):
+                 se_layer=None, drop_rate=0., drop_path_rate=0., global_pool='avg',
+                out_indices=(0, 1, 2, 3, 4), feature_location='bottleneck'):
         super(EfficientNet, self).__init__()
         act_layer = act_layer or nn.ReLU
         norm_layer = norm_layer or nn.BatchNorm2d
@@ -437,7 +438,9 @@ class EfficientNet(nn.Module):
             output_stride=output_stride, pad_type=pad_type, round_chs_fn=round_chs_fn,
             act_layer=act_layer, norm_layer=norm_layer, se_layer=se_layer, drop_path_rate=drop_path_rate)
         self.blocks = nn.Sequential(*builder(stem_size, block_args))
-        self.feature_info = builder.features
+        # self.feature_info = builder.features
+        self.feature_info = FeatureInfo(builder.features, out_indices)
+        self._stage_out_idx = {v['stage']: i for i, v in enumerate(self.feature_info) if i in out_indices}
         head_chs = builder.in_chs
 
         # Head + Pooling
@@ -448,6 +451,11 @@ class EfficientNet(nn.Module):
             self.num_features, self.num_classes, pool_type=global_pool)
 
         efficientnet_init_weights(self)
+        
+        self.feature_hooks = None
+        if feature_location != 'bottleneck':
+            hooks = self.feature_info.get_dicts(keys=('module', 'hook_type'))
+            self.feature_hooks = FeatureHooks(hooks, self.named_modules())
 
     def as_sequential(self):
         layers = [self.conv_stem, self.bn1, self.act1]
@@ -481,6 +489,23 @@ class EfficientNet(nn.Module):
             x = F.dropout(x, p=self.drop_rate, training=self.training)
         return self.classifier(x)
 
+    def get_features(self, x) -> List[torch.Tensor]:
+        x = self.conv_stem(x)
+        x = self.bn1(x)
+        x = self.act1(x)
+        if self.feature_hooks is None:
+            features = []
+            if 0 in self._stage_out_idx:
+                features.append(x)  # add stem out
+            for i, b in enumerate(self.blocks):
+                x = b(x)
+                if i + 1 in self._stage_out_idx:
+                    features.append(x)
+            return features
+        else:
+            self.blocks(x)
+            out = self.feature_hooks.get_output(x.device)
+            return list(out.values())
 
 class EfficientNetFeatures(nn.Module):
     """ EfficientNet Feature Extractor

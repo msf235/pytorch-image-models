@@ -22,6 +22,7 @@ import logging
 from collections import OrderedDict
 from contextlib import suppress
 from datetime import datetime
+import copy
 
 import torch
 import torch.nn as nn
@@ -83,6 +84,10 @@ parser.add_argument('--model', default='resnet101', type=str, metavar='MODEL',
                     help='Name of model to train (default: "countception"')
 parser.add_argument('--pretrained', action='store_true', default=False,
                     help='Start with pretrained version of specified network (if avail)')
+parser.add_argument('--dim-pretrain', action='store_true', default=False,
+                    help='Run dimensionality regularizing pretraining.')
+parser.add_argument('--dim-and-loss-pretrain', action='store_true', default=False,
+                    help='Run dimensionality regularizing pretraining alongside minimizing the loss.')
 parser.add_argument('--initial-checkpoint', default='', type=str, metavar='PATH',
                     help='Initialize model from this checkpoint (default: none)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
@@ -230,7 +235,7 @@ parser.add_argument('--dist-bn', type=str, default='',
                     help='Distribute BatchNorm stats between nodes after each epoch ("broadcast", "reduce", or "")')
 parser.add_argument('--split-bn', action='store_true',
                     help='Enable separate BN layers per augmentation split.')
-parser.add_argument('--disable_bn', action='store_true',
+parser.add_argument('--disable_bn', action='store_true', default=False,
                     help='Disable batch normalization.')
 
 # Model Exponential Moving Average
@@ -272,6 +277,8 @@ parser.add_argument('--experiment', default='', type=str, metavar='NAME',
                     help='name of train experiment, name of sub-folder for output')
 parser.add_argument('--eval-metric', default='top1', type=str, metavar='EVAL_METRIC',
                     help='Best metric (default: "top1"')
+parser.add_argument('--save-every', default=0, type=int, metavar='SAVE_EVERY',
+                    help='Save every [] epochs (default: 0)')
 parser.add_argument('--tta', type=int, default=0, metavar='N',
                     help='Test/inference time augmentation (oversampling) factor. 0=None (default: 0)')
 parser.add_argument("--local_rank", default=0, type=int)
@@ -299,6 +306,17 @@ def _parse_args():
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
     return args, args_text
 
+
+def get_pr_dim(X, preserve_gradients=True):
+    # X_centered = X - np.mean(X, axis=0)
+    # C = X_centered.T @ X_centered / (X.shape[0]-1)
+    N = X.shape[0]
+    X_centered = X-torch.mean(X, dim=0)
+    if X.shape[0] < X.shape[1]:
+        X_centered = X_centered.T
+    C = X_centered.T@X_centered/(N-1)
+    eigs = torch.symeig(C, eigenvectors=preserve_gradients)[0]
+    return torch.sum(eigs)**2/torch.sum(eigs**2)
 
 def main():
     setup_default_logging()
@@ -407,7 +425,15 @@ def main():
         assert not args.sync_bn, 'Cannot use SyncBatchNorm with torchscripted model'
         model = torch.jit.script(model)
 
+    temp_args = copy.deepcopy(args)
+    temp_args.lr = args.lr * 0.01
+    temp_args.warmup_lr = args.lr * 0.01
+    temp_args.warmup_epochs = 0
+    temp_args.sched = 'step'
+    temp_args.decay_t = 1
+
     optimizer = create_optimizer_v2(model, **optimizer_kwargs(cfg=args))
+    optimizer_pretrain = create_optimizer_v2(model, **optimizer_kwargs(cfg=temp_args))
 
     # setup automatic mixed-precision (AMP) loss scaling and op casting
     amp_autocast = suppress  # do nothing
@@ -444,19 +470,6 @@ def main():
         if args.resume:
             load_checkpoint(model_ema.module, args.resume, use_ema=True)
 
-    # setup distributed training
-    if args.distributed:
-        if has_apex and use_amp != 'native':
-            # Apex DDP preferred unless native amp is activated
-            if args.local_rank == 0:
-                _logger.info("Using NVIDIA APEX DistributedDataParallel.")
-            model = ApexDDP(model, delay_allreduce=True)
-        else:
-            if args.local_rank == 0:
-                _logger.info("Using native Torch DistributedDataParallel.")
-            model = NativeDDP(model, device_ids=[args.local_rank])  # can use device str in Torch >= 1.1
-        # NOTE: EMA model does not need to be wrapped by DDP
-
     # setup learning rate schedule and starting epoch
     lr_scheduler, num_epochs = create_scheduler(args, optimizer)
     start_epoch = 0
@@ -468,6 +481,7 @@ def main():
     if lr_scheduler is not None and start_epoch > 0:
         lr_scheduler.step(start_epoch)
 
+    lr_scheduler_pretrain, __ = create_scheduler(temp_args, optimizer)
     if args.local_rank == 0:
         _logger.info('Scheduled epochs: {}'.format(num_epochs))
 
@@ -476,6 +490,11 @@ def main():
         args.dataset,
         root=args.data_dir, split=args.train_split, is_training=True,
         batch_size=args.batch_size, repeats=args.epoch_repeats)
+    pretrain_batchsize = 128
+    dataset_pretrain = create_dataset(
+        args.dataset,
+        root=args.data_dir, split=args.train_split, is_training=True,
+        batch_size=pretrain_batchsize)
     dataset_eval = create_dataset(
         args.dataset, root=args.data_dir, split=args.val_split, is_training=False, batch_size=args.batch_size)
 
@@ -529,6 +548,33 @@ def main():
         pin_memory=args.pin_mem,
         use_multi_epochs_loader=args.use_multi_epochs_loader
     )
+    loader_pretrain = create_loader(
+        dataset_pretrain,
+        input_size=data_config['input_size'],
+        batch_size=pretrain_batchsize,
+        is_training=True,
+        use_prefetcher=args.prefetcher,
+        no_aug=args.no_aug,
+        re_prob=args.reprob,
+        re_mode=args.remode,
+        re_count=args.recount,
+        re_split=args.resplit,
+        scale=args.scale,
+        ratio=args.ratio,
+        hflip=args.hflip,
+        vflip=args.vflip,
+        color_jitter=args.color_jitter,
+        auto_augment=args.aa,
+        num_aug_splits=num_aug_splits,
+        interpolation=train_interpolation,
+        mean=data_config['mean'],
+        std=data_config['std'],
+        num_workers=args.workers,
+        distributed=args.distributed,
+        collate_fn=collate_fn,
+        pin_memory=args.pin_mem,
+        use_multi_epochs_loader=args.use_multi_epochs_loader
+    )
 
     loader_eval = create_loader(
         dataset_eval,
@@ -558,6 +604,17 @@ def main():
         train_loss_fn = nn.CrossEntropyLoss().cuda()
     validate_loss_fn = nn.CrossEntropyLoss().cuda()
 
+    def dim_loss(hids: list):
+        loss = 0
+        for hid in hids:
+            hid = hid.reshape(hid.shape[0], -1)
+            # rand_ind = torch.randperm(hid.shape[-1])[:1000]
+            # hid = hid[:, rand_ind]
+            pr_dim = metrics.get_pr_dim(hid)
+            loss += (pr_dim - pretrain_batchsize)**2
+            print("Dim: ", round(pr_dim.item()))
+        return loss / len(hids)
+
     # setup checkpoint saver and eval metric tracking
     eval_metric = args.eval_metric
     best_metric = None
@@ -581,14 +638,60 @@ def main():
         with open(os.path.join(output_dir, 'args.yaml'), 'w') as f:
             f.write(args_text)
 
+    saver_periodic = CheckpointSaver(
+        model=model, optimizer=optimizer, args=args, model_ema=model_ema, amp_scaler=loss_scaler,
+        checkpoint_dir=output_dir, recovery_dir=output_dir, decreasing=decreasing, max_history=args.checkpoint_hist)
     try:
+        if output_dir is not None:
+            eval_metrics = validate(model, loader_eval, validate_loss_fn, args,
+                                    amp_autocast=amp_autocast)
+            train_metrics = OrderedDict([('loss', -1)]) 
+            update_summary(
+                'initial', train_metrics, eval_metrics, os.path.join(output_dir, 'summary.csv'),
+                write_header=True, log_wandb=args.log_wandb and has_wandb)
+        __, __  = saver_periodic.save_checkpoint('initial', metric='keep')
+        pretrain = args.dim_and_loss_pretrain or args.dim_pretrain
+        if args.dim_and_loss_pretrain and args.dim_pretrain:
+            raise AttributeError("Please set only one of dim_pretrain or dim_and_loss_pretrain to True")
+        if args.dim_and_loss_pretrain:
+            pretrain_loss_fn = train_loss_fn
+        else:
+            pretrain_loss_fn = None
+        if pretrain:
+            train_metrics = pretrain_epoch(
+                'pretrain', model, loader_pretrain, optimizer_pretrain, dim_loss,
+                pretrain_loss_fn, args, lr_scheduler=lr_scheduler_pretrain,
+                saver=saver_periodic, output_dir=output_dir, amp_autocast=amp_autocast,
+                loss_scaler=loss_scaler, model_ema=model_ema,
+                mixup_fn=mixup_fn)
+
+            eval_metrics = validate(model, loader_eval, validate_loss_fn, args,
+                                    amp_autocast=amp_autocast)
+            if output_dir is not None:
+                update_summary(
+                    'pretrain', train_metrics, eval_metrics, os.path.join(output_dir, 'summary.csv'),
+                    write_header=True, log_wandb=args.log_wandb and has_wandb)
+
+            __, __  = saver_periodic.save_checkpoint('dim_pretrain', metric='keep')
+        # setup distributed training
+        if args.distributed:
+            if has_apex and use_amp != 'native':
+                # Apex DDP preferred unless native amp is activated
+                if args.local_rank == 0:
+                    _logger.info("Using NVIDIA APEX DistributedDataParallel.")
+                model = ApexDDP(model, delay_allreduce=True)
+            else:
+                if args.local_rank == 0:
+                    _logger.info("Using native Torch DistributedDataParallel.")
+                model = NativeDDP(model, device_ids=[args.local_rank])  # can use device str in Torch >= 1.1
+            # NOTE: EMA model does not need to be wrapped by DDP
         for epoch in range(start_epoch, num_epochs):
             if args.distributed and hasattr(loader_train.sampler, 'set_epoch'):
                 loader_train.sampler.set_epoch(epoch)
 
             train_metrics = train_one_epoch(
                 epoch, model, loader_train, optimizer, train_loss_fn, args,
-                lr_scheduler=lr_scheduler, saver=saver, output_dir=output_dir,
+                lr_scheduler=lr_scheduler, saver=saver_periodic, output_dir=output_dir,
                 amp_autocast=amp_autocast, loss_scaler=loss_scaler, model_ema=model_ema, mixup_fn=mixup_fn)
 
             if args.distributed and args.dist_bn in ('broadcast', 'reduce'):
@@ -618,6 +721,9 @@ def main():
                 # save proper checkpoint with eval metric
                 save_metric = eval_metrics[eval_metric]
                 best_metric, best_epoch = saver.save_checkpoint(epoch, metric=save_metric)
+            if args.save_every > 0 and (epoch+1) % args.save_every == 0:
+                __, __  = saver_periodic.save_checkpoint(epoch, metric='keep')
+                            
 
     except KeyboardInterrupt:
         pass
@@ -625,6 +731,108 @@ def main():
         _logger.info('*** Best metric: {0} (epoch {1})'.format(best_metric, best_epoch))
 
 
+def pretrain_epoch(
+        epoch, model, loader, optimizer, dim_loss_fn, loss_fn, args,
+        lr_scheduler=None, saver=None, output_dir=None, amp_autocast=suppress,
+        loss_scaler=None, model_ema=None, mixup_fn=None):
+
+
+    second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
+    batch_time_m = AverageMeter()
+    data_time_m = AverageMeter()
+    losses_m = AverageMeter()
+
+    model.train()
+
+    end = time.time()
+    last_idx = len(loader) - 1
+    for batch_idx, (input, target) in enumerate(loader):
+        last_batch = batch_idx == last_idx
+        data_time_m.update(time.time() - end)
+        if not args.prefetcher:
+            input, target = input.cuda(), target.cuda()
+            if mixup_fn is not None:
+                input, target = mixup_fn(input, target)
+        if args.channels_last:
+            input = input.contiguous(memory_format=torch.channels_last)
+
+        hid = model.get_features(input)
+        # loss = dim_loss_fn(hid).clamp(max=10)
+        loss = dim_loss_fn(hid)/50
+        if loss_fn is not None:
+            with amp_autocast():
+                output = model(input)
+                loss += loss_fn(output, target)
+            loss = loss / 2
+
+        if not args.distributed:
+            losses_m.update(loss.item(), input.size(0))
+
+        optimizer.zero_grad()
+        if loss_scaler is not None:
+            loss_scaler(
+                loss, optimizer,
+                clip_grad=args.clip_grad, clip_mode=args.clip_mode,
+                parameters=model_parameters(model, exclude_head='agc' in args.clip_mode),
+                create_graph=second_order)
+        else:
+            loss.backward(create_graph=second_order)
+            if args.clip_grad is not None:
+                dispatch_clip_grad(
+                    model_parameters(model, exclude_head='agc' in args.clip_mode),
+                    value=args.clip_grad, mode=args.clip_mode)
+            optimizer.step()
+
+        if model_ema is not None:
+            model_ema.update(model)
+
+        torch.cuda.synchronize()
+        batch_time_m.update(time.time() - end)
+        if last_batch or batch_idx % args.log_interval == 0:
+            lrl = [param_group['lr'] for param_group in optimizer.param_groups]
+            lr = sum(lrl) / len(lrl)
+
+            if args.distributed:
+                reduced_loss = reduce_tensor(loss.data, args.world_size)
+                losses_m.update(reduced_loss.item(), input.size(0))
+
+            if args.local_rank == 0:
+                _logger.info(
+                    'Train: {} [{:>4d}/{} ({:>3.0f}%)]  '
+                    'Loss: {loss.val:>9.6f} ({loss.avg:>6.4f})  '
+                    'Time: {batch_time.val:.3f}s, {rate:>7.2f}/s  '
+                    '({batch_time.avg:.3f}s, {rate_avg:>7.2f}/s)  '
+                    'LR: {lr:.3e}  '
+                    'Data: {data_time.val:.3f} ({data_time.avg:.3f})'.format(
+                        epoch,
+                        batch_idx, len(loader),
+                        100. * batch_idx / last_idx,
+                        loss=losses_m,
+                        batch_time=batch_time_m,
+                        rate=input.size(0) * args.world_size / batch_time_m.val,
+                        rate_avg=input.size(0) * args.world_size / batch_time_m.avg,
+                        lr=lr,
+                        data_time=data_time_m))
+
+                if args.save_images and output_dir:
+                    torchvision.utils.save_image(
+                        input,
+                        os.path.join(output_dir, 'train-batch-%d.jpg' % batch_idx),
+                        padding=0,
+                        normalize=True)
+
+        if saver is not None and args.recovery_interval and (
+                last_batch or (batch_idx + 1) % args.recovery_interval == 0):
+            saver.save_recovery(epoch, batch_idx=batch_idx)
+
+
+        end = time.time()
+        # end for
+
+    if hasattr(optimizer, 'sync_lookahead'):
+        optimizer.sync_lookahead()
+
+    return OrderedDict([('loss', losses_m.avg)])
 def train_one_epoch(
         epoch, model, loader, optimizer, loss_fn, args,
         lr_scheduler=None, saver=None, output_dir=None, amp_autocast=suppress,
