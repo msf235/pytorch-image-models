@@ -235,7 +235,7 @@ parser.add_argument('--dist-bn', type=str, default='',
                     help='Distribute BatchNorm stats between nodes after each epoch ("broadcast", "reduce", or "")')
 parser.add_argument('--split-bn', action='store_true',
                     help='Enable separate BN layers per augmentation split.')
-parser.add_argument('--disable_bn', action='store_true', default=False,
+parser.add_argument('--disable-bn', action='store_true', default=False,
                     help='Disable batch normalization.')
 
 # Model Exponential Moving Average
@@ -481,7 +481,7 @@ def main():
     if lr_scheduler is not None and start_epoch > 0:
         lr_scheduler.step(start_epoch)
 
-    lr_scheduler_pretrain, __ = create_scheduler(temp_args, optimizer)
+    lr_scheduler_pretrain, __ = create_scheduler(temp_args, optimizer_pretrain)
     if args.local_rank == 0:
         _logger.info('Scheduled epochs: {}'.format(num_epochs))
 
@@ -490,7 +490,7 @@ def main():
         args.dataset,
         root=args.data_dir, split=args.train_split, is_training=True,
         batch_size=args.batch_size, repeats=args.epoch_repeats)
-    pretrain_batchsize = 128
+    pretrain_batchsize = 256
     dataset_pretrain = create_dataset(
         args.dataset,
         root=args.data_dir, split=args.train_split, is_training=True,
@@ -612,7 +612,8 @@ def main():
             # hid = hid[:, rand_ind]
             pr_dim = metrics.get_pr_dim(hid)
             loss += (pr_dim - pretrain_batchsize)**2
-            print("Dim: ", round(pr_dim.item()))
+            _logger.info("Dim: ", round(pr_dim.item()))
+            # print("Dim: ", round(pr_dim.item()))
         return loss / len(hids)
 
     # setup checkpoint saver and eval metric tracking
@@ -692,7 +693,7 @@ def main():
         for epoch in range(start_epoch, num_epochs):
             if args.distributed and hasattr(loader_train.sampler, 'set_epoch'):
                 loader_train.sampler.set_epoch(epoch)
-
+            breakpoint()
             train_metrics = train_one_epoch(
                 epoch, model, loader_train, optimizer, train_loss_fn, args,
                 lr_scheduler=lr_scheduler, saver=saver, output_dir=output_dir,
