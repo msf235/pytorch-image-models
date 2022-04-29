@@ -425,14 +425,22 @@ class EfficientNet(nn.Module):
 
     """
 
+<<<<<<< HEAD
     def __init__(self, block_args, num_classes=1000, num_features=1280,
                  in_chans=3, stem_size=32, fix_stem=False, output_stride=32,
                  pad_type='', round_chs_fn=round_channels, act_layer=None,
                  norm_layer=None, se_layer=None, drop_rate=0.,
                  drop_path_rate=0., global_pool='avg'):
+=======
+    def __init__(self, block_args, num_classes=1000, num_features=1280, in_chans=3, stem_size=32, fix_stem=False,
+                 output_stride=32, pad_type='', round_chs_fn=round_channels, act_layer=None, norm_layer=None,
+                 se_layer=None, drop_rate=0., drop_path_rate=0., global_pool='avg',
+                out_indices=(0, 1, 2, 3, 4), feature_location='bottleneck'):
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         super(EfficientNet, self).__init__()
         act_layer = act_layer or nn.ReLU
         norm_layer = norm_layer or nn.BatchNorm2d
+        print(f"BN layer: {norm_layer}")  # For debugging purposes
         se_layer = se_layer or SqueezeExcite
         self.num_classes = num_classes
         self.num_features = num_features
@@ -450,7 +458,9 @@ class EfficientNet(nn.Module):
             output_stride=output_stride, pad_type=pad_type, round_chs_fn=round_chs_fn,
             act_layer=act_layer, norm_layer=norm_layer, se_layer=se_layer, drop_path_rate=drop_path_rate)
         self.blocks = nn.Sequential(*builder(stem_size, block_args))
-        self.feature_info = builder.features
+        # self.feature_info = builder.features
+        self.feature_info = FeatureInfo(builder.features, out_indices)
+        self._stage_out_idx = {v['stage']: i for i, v in enumerate(self.feature_info) if i in out_indices}
         head_chs = builder.in_chs
 
         # Head + Pooling
@@ -461,6 +471,11 @@ class EfficientNet(nn.Module):
             self.num_features, self.num_classes, pool_type=global_pool)
 
         efficientnet_init_weights(self)
+        
+        self.feature_hooks = None
+        if feature_location != 'bottleneck':
+            hooks = self.feature_info.get_dicts(keys=('module', 'hook_type'))
+            self.feature_hooks = FeatureHooks(hooks, self.named_modules())
 
     def as_sequential(self):
         layers = [self.conv_stem, self.bn1, self.act1]
@@ -494,6 +509,23 @@ class EfficientNet(nn.Module):
             x = F.dropout(x, p=self.drop_rate, training=self.training)
         return self.classifier(x)
 
+    def get_features(self, x) -> List[torch.Tensor]:
+        x = self.conv_stem(x)
+        x = self.bn1(x)
+        x = self.act1(x)
+        if self.feature_hooks is None:
+            features = []
+            if 0 in self._stage_out_idx:
+                features.append(x)  # add stem out
+            for i, b in enumerate(self.blocks):
+                x = b(x)
+                if i + 1 in self._stage_out_idx:
+                    features.append(x)
+            return features
+        else:
+            self.blocks(x)
+            out = self.feature_hooks.get_output(x.device)
+            return list(out.values())
 
 class EfficientNetFeatures(nn.Module):
     """ EfficientNet Feature Extractor
@@ -598,11 +630,19 @@ def _gen_mnasnet_a1(variant, channel_multiplier=1.0, pretrained=False, **kwargs)
         # stage 6, 7x7 in
         ['ir_r1_k3_s1_e6_c320'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def),
         stem_size=32,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)
@@ -634,11 +674,19 @@ def _gen_mnasnet_b1(variant, channel_multiplier=1.0, pretrained=False, **kwargs)
         # stage 6, 7x7 in
         ['ir_r1_k3_s1_e6_c320_noskip']
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def),
         stem_size=32,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)
@@ -663,11 +711,19 @@ def _gen_mnasnet_small(variant, channel_multiplier=1.0, pretrained=False, **kwar
         ['ir_r3_k5_s2_e6_c88_se0.25'],
         ['ir_r1_k3_s1_e6_c144']
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def),
         stem_size=8,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)
@@ -690,13 +746,21 @@ def _gen_mobilenet_v2(
         ['ir_r1_k3_s1_e6_c320'],
     ]
     round_chs_fn = partial(round_channels, multiplier=channel_multiplier)
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def, depth_multiplier=depth_multiplier, fix_first_last=fix_stem_head),
         num_features=1280 if fix_stem_head else round_chs_fn(1280),
         stem_size=32,
         fix_stem=fix_stem_head,
         round_chs_fn=round_chs_fn,
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         act_layer=resolve_act_layer(kwargs, 'relu6'),
         **kwargs
     )
@@ -722,12 +786,20 @@ def _gen_fbnetc(variant, channel_multiplier=1.0, pretrained=False, **kwargs):
         ['ir_r4_k5_s2_e6_c184'],
         ['ir_r1_k3_s1_e6_c352'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def),
         stem_size=16,
         num_features=1984,  # paper suggests this, but is not 100% clear
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)
@@ -758,11 +830,19 @@ def _gen_spnasnet(variant, channel_multiplier=1.0, pretrained=False, **kwargs):
         # stage 6, 7x7 in
         ['ir_r1_k3_s1_e6_c320_noskip']
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def),
         stem_size=32,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)
@@ -802,6 +882,10 @@ def _gen_efficientnet(variant, channel_multiplier=1.0, depth_multiplier=1.0, pre
         ['ir_r4_k5_s2_e6_c192_se0.25'],
         ['ir_r1_k3_s1_e6_c320_se0.25'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     round_chs_fn = partial(round_channels, multiplier=channel_multiplier)
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def, depth_multiplier),
@@ -809,7 +893,11 @@ def _gen_efficientnet(variant, channel_multiplier=1.0, depth_multiplier=1.0, pre
         stem_size=32,
         round_chs_fn=round_chs_fn,
         act_layer=resolve_act_layer(kwargs, 'swish'),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs,
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)
@@ -832,13 +920,21 @@ def _gen_efficientnet_edge(variant, channel_multiplier=1.0, depth_multiplier=1.0
         ['ir_r4_k5_s1_e8_c144'],
         ['ir_r2_k5_s2_e8_c192'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     round_chs_fn = partial(round_channels, multiplier=channel_multiplier)
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def, depth_multiplier),
         num_features=round_chs_fn(1280),
         stem_size=32,
         round_chs_fn=round_chs_fn,
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         act_layer=resolve_act_layer(kwargs, 'relu'),
         **kwargs,
     )
@@ -861,6 +957,10 @@ def _gen_efficientnet_condconv(
         ['ir_r4_k5_s2_e6_c192_se0.25_cc4'],
         ['ir_r1_k3_s1_e6_c320_se0.25_cc4'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     # NOTE unlike official impl, this one uses `cc<x>` option where x is the base number of experts for each stage and
     # the expert_multiplier increases that on a per-model basis as with depth/channel multipliers
     round_chs_fn = partial(round_channels, multiplier=channel_multiplier)
@@ -869,7 +969,11 @@ def _gen_efficientnet_condconv(
         num_features=round_chs_fn(1280),
         stem_size=32,
         round_chs_fn=round_chs_fn,
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         act_layer=resolve_act_layer(kwargs, 'swish'),
         **kwargs,
     )
@@ -904,6 +1008,10 @@ def _gen_efficientnet_lite(variant, channel_multiplier=1.0, depth_multiplier=1.0
         ['ir_r4_k5_s2_e6_c192'],
         ['ir_r1_k3_s1_e6_c320'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def, depth_multiplier, fix_first_last=True),
         num_features=1280,
@@ -911,7 +1019,11 @@ def _gen_efficientnet_lite(variant, channel_multiplier=1.0, depth_multiplier=1.0
         fix_stem=True,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
         act_layer=resolve_act_layer(kwargs, 'relu6'),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs,
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)
@@ -933,13 +1045,21 @@ def _gen_efficientnetv2_base(
         ['ir_r5_k3_s1_e6_c112_se0.25'],
         ['ir_r8_k3_s2_e6_c192_se0.25'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     round_chs_fn = partial(round_channels, multiplier=channel_multiplier, round_limit=0.)
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def, depth_multiplier),
         num_features=round_chs_fn(1280),
         stem_size=32,
         round_chs_fn=round_chs_fn,
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         act_layer=resolve_act_layer(kwargs, 'silu'),
         **kwargs,
     )
@@ -965,6 +1085,10 @@ def _gen_efficientnetv2_s(
         ['ir_r9_k3_s1_e6_c160_se0.25'],
         ['ir_r15_k3_s2_e6_c256_se0.25'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     num_features = 1280
     if rw:
         # my original variant, based on paper figure differs from the official release
@@ -978,7 +1102,11 @@ def _gen_efficientnetv2_s(
         num_features=round_chs_fn(num_features),
         stem_size=24,
         round_chs_fn=round_chs_fn,
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         act_layer=resolve_act_layer(kwargs, 'silu'),
         **kwargs,
     )
@@ -1002,13 +1130,21 @@ def _gen_efficientnetv2_m(variant, channel_multiplier=1.0, depth_multiplier=1.0,
         ['ir_r18_k3_s2_e6_c304_se0.25'],
         ['ir_r5_k3_s1_e6_c512_se0.25'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
 
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def, depth_multiplier),
         num_features=1280,
         stem_size=24,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         act_layer=resolve_act_layer(kwargs, 'silu'),
         **kwargs,
     )
@@ -1032,12 +1168,17 @@ def _gen_efficientnetv2_l(variant, channel_multiplier=1.0, depth_multiplier=1.0,
         ['ir_r25_k3_s2_e6_c384_se0.25'],
         ['ir_r7_k3_s1_e6_c640_se0.25'],
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
 
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def, depth_multiplier),
         num_features=1280,
         stem_size=32,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
         act_layer=resolve_act_layer(kwargs, 'silu'),
         **kwargs,
@@ -1069,6 +1210,9 @@ def _gen_efficientnetv2_xl(variant, channel_multiplier=1.0, depth_multiplier=1.0
         stem_size=32,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         act_layer=resolve_act_layer(kwargs, 'silu'),
         **kwargs,
     )
@@ -1097,12 +1241,20 @@ def _gen_mixnet_s(variant, channel_multiplier=1.0, pretrained=False, **kwargs):
         ['ir_r1_k3.5.7.9.11_s2_e6_c200_se0.5_nsw', 'ir_r2_k3.5.7.9_p1.1_s1_e6_c200_se0.5_nsw'],  # swish
         # 7x7
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def),
         num_features=1536,
         stem_size=16,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)
@@ -1130,12 +1282,20 @@ def _gen_mixnet_m(variant, channel_multiplier=1.0, depth_multiplier=1.0, pretrai
         ['ir_r1_k3.5.7.9_s2_e6_c200_se0.5_nsw', 'ir_r3_k3.5.7.9_p1.1_s1_e6_c200_se0.5_nsw'],  # swish
         # 7x7
     ]
+    if 'disable_bn' in kwargs and kwargs['disable_bn']:
+        BN = nn.Identity
+    else:
+        BN = nn.BatchNorm2d
     model_kwargs = dict(
         block_args=decode_arch_def(arch_def, depth_multiplier, depth_trunc='round'),
         num_features=1536,
         stem_size=24,
         round_chs_fn=partial(round_channels, multiplier=channel_multiplier),
+<<<<<<< HEAD
         norm_layer=kwargs.pop('norm_layer', None) or partial(nn.BatchNorm2d, **resolve_bn_args(kwargs)),
+=======
+        norm_layer=partial(BN, **resolve_bn_args(kwargs)),
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35
         **kwargs
     )
     model = _create_effnet(variant, pretrained, **model_kwargs)

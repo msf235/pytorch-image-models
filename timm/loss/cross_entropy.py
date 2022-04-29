@@ -35,6 +35,7 @@ class SoftTargetCrossEntropy(nn.Module):
         loss = torch.sum(-target * F.log_softmax(x, dim=-1), dim=-1)
         return loss.mean()
 
+<<<<<<< HEAD
 
 # @torch.jit.script
 def logsoftmultimaxselect(x, groups, groups_all):
@@ -157,3 +158,5 @@ if __name__ == '__main__':
     L = MultihotCrossEntropy(n_classes, target_dim, n_hot)
     y = [800, 454, 3, 55]
     loss = L(yh, y)
+=======
+>>>>>>> e37bc2104827259356ba1798dd032cd569efeb35

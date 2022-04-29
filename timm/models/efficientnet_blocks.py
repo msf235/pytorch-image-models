@@ -213,7 +213,6 @@ class CondConvResidual(InvertedResidual):
             self, in_chs, out_chs, dw_kernel_size=3, stride=1, dilation=1, pad_type='',
             noskip=False, exp_ratio=1.0, exp_kernel_size=1, pw_kernel_size=1, act_layer=nn.ReLU,
             norm_layer=nn.BatchNorm2d, se_layer=None, num_experts=0, drop_path_rate=0.):
-
         self.num_experts = num_experts
         conv_kwargs = dict(num_experts=self.num_experts)
 

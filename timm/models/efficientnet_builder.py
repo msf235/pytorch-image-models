@@ -47,6 +47,9 @@ def resolve_bn_args(kwargs):
     bn_eps = kwargs.pop('bn_eps', None)
     if bn_eps is not None:
         bn_args['eps'] = bn_eps
+    disable_bn = kwargs.pop('disable_bn', None)
+    #  if disable_bn is not None:
+        #  bn_args['disable_bn'] = disable_bn
     return bn_args
 
 
