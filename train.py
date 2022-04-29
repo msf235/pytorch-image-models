@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """ ImageNet Training Script
 
 This is intended to be a lean and easily modifiable ImageNet training script that reproduces ImageNet
@@ -198,6 +197,12 @@ parser.add_argument('--bce-loss', action='store_true', default=False,
                     help='Enable BCE loss w/ Mixup/CutMix use.')
 parser.add_argument('--bce-target-thresh', type=float, default=None,
                     help='Threshold for binarizing softened BCE targets (default: None, disabled)')
+parser.add_argument('--cce-multihot', action='store_true', default=False,
+                    help='Enable CCE loss w/ Multihot targets.')
+parser.add_argument('--target-dim', type=int, default=None,
+                    help='Target dimension for Multihot targets.')
+parser.add_argument('--target-nhot', type=int, default=None,
+                    help='Number of hot entries for Multihot targets.')
 parser.add_argument('--reprob', type=float, default=0., metavar='PCT',
                     help='Random erase prob (default: 0.)')
 parser.add_argument('--remode', type=str, default='pixel',
@@ -299,6 +304,8 @@ parser.add_argument('--torchscript', dest='torchscript', action='store_true',
                     help='convert model torchscript for inference')
 parser.add_argument('--log-wandb', action='store_true', default=False,
                     help='log training and validation metrics to wandb')
+parser.add_argument('--debug', action='store_true', default=False,
+                    help='Debug mode. Sets num_workers=0.')
 
 
 def _parse_args():
@@ -321,6 +328,8 @@ def _parse_args():
 def main():
     setup_default_logging()
     args, args_text = _parse_args()
+    if args.target_dim is None:
+        args.target_dim = args.num_classes
     
     if args.log_wandb:
         if has_wandb:
@@ -369,7 +378,7 @@ def main():
     model = create_model(
         args.model,
         pretrained=args.pretrained,
-        num_classes=args.num_classes,
+        num_classes=args.target_dim,
         drop_rate=args.drop,
         drop_connect_rate=args.drop_connect,  # DEPRECATED, use drop_path
         drop_path_rate=args.drop_path,
@@ -524,6 +533,8 @@ def main():
     train_interpolation = args.train_interpolation
     if args.no_aug or not train_interpolation:
         train_interpolation = data_config['interpolation']
+    if args.debug:
+        args.workers = 0
     loader_train = create_loader(
         dataset_train,
         input_size=data_config['input_size'],
@@ -552,6 +563,7 @@ def main():
         pin_memory=args.pin_mem,
         use_multi_epochs_loader=args.use_multi_epochs_loader,
         worker_seeding=args.worker_seeding,
+        persistent_workers=args.workers > 0
     )
 
     loader_eval = create_loader(
@@ -567,27 +579,51 @@ def main():
         distributed=args.distributed,
         crop_pct=data_config['crop_pct'],
         pin_memory=args.pin_mem,
+        persistent_workers=args.workers > 0
     )
 
     # setup loss function
+    # print(args.cce_multihot)
+    assert not (args.cce_multihot and args.smoothing)
     if args.jsd_loss:
+        # print(0)
         assert num_aug_splits > 1  # JSD only valid with aug splits set
         train_loss_fn = JsdCrossEntropy(num_splits=num_aug_splits, smoothing=args.smoothing)
     elif mixup_active:
+        # print(1)
         # smoothing is handled with mixup target transform which outputs sparse, soft targets
         if args.bce_loss:
             train_loss_fn = BinaryCrossEntropy(target_threshold=args.bce_target_thresh)
         else:
             train_loss_fn = SoftTargetCrossEntropy()
     elif args.smoothing:
+        # print(2)
         if args.bce_loss:
             train_loss_fn = BinaryCrossEntropy(smoothing=args.smoothing, target_threshold=args.bce_target_thresh)
         else:
             train_loss_fn = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    elif args.cce_multihot:
+        # print(3)
+        rng = torch.Generator()
+        rng.manual_seed(args.seed+30)
+        # train_loss_fn = torch.jit.script(MultihotCrossEntropy(
+            # args.num_classes, args.target_dim, args.target_nhot, rng)
+        # )
+        train_loss_fn = MultihotCrossEntropy(
+            args.num_classes, args.target_dim, args.target_nhot, rng)
     else:
+        # print(4)
         train_loss_fn = nn.CrossEntropyLoss()
     train_loss_fn = train_loss_fn.cuda()
-    validate_loss_fn = nn.CrossEntropyLoss().cuda()
+    if args.cce_multihot:
+        rng = torch.Generator()
+        rng.manual_seed(args.seed+80)
+        # validate_loss_fn = torch.jit.script(MultihotCrossEntropy(
+            # args.num_classes, args.target_dim, args.target_nhot, rng)).cuda()
+        validate_loss_fn = MultihotCrossEntropy(
+            args.num_classes, args.target_dim, args.target_nhot, rng).cuda()
+    else:
+        validate_loss_fn = nn.CrossEntropyLoss().cuda()
 
     # setup checkpoint saver and eval metric tracking
     eval_metric = args.eval_metric
@@ -687,9 +723,12 @@ def train_one_epoch(
         if args.channels_last:
             input = input.contiguous(memory_format=torch.channels_last)
 
+
         with amp_autocast():
             output = model(input)
             loss = loss_fn(output, target)
+
+        # print(loss.item())
 
         if not args.distributed:
             losses_m.update(loss.item(), input.size(0))
@@ -794,8 +833,14 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
                 output = output.unfold(0, reduce_factor, reduce_factor).mean(dim=2)
                 target = target[0:target.size(0):reduce_factor]
 
-            loss = loss_fn(output, target)
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            if args.cce_multihot:
+                out_id = torch.argmax(output @ loss_fn.targets.T.float(),
+                                      dim=-1)
+                acc1, acc5 = accuracy(out_id, target, topk=(1, 5))
+                loss = loss_fn(output, loss_fn.targets[target])
+            else:
+                acc1, acc5 = accuracy(output, target, topk=(1, 5))
+                loss = loss_fn(output, target)
 
             if args.distributed:
                 reduced_loss = reduce_tensor(loss.data, args.world_size)
