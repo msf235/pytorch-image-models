@@ -80,6 +80,11 @@ class CheckpointSaver:
                 self._cleanup_checkpoints(1)
             filename = '-'.join([self.save_prefix, str(epoch)]) + self.extension
             save_path = os.path.join(self.checkpoint_dir, filename)
+            # This is an experimental change to avoid FileExistsError
+            # try:
+                # os.remove(save_path) 
+            # except OSError:
+                # pass
             os.link(last_save_path, save_path)
             self.checkpoint_files.append((save_path, metric))
             self.checkpoint_files = sorted(

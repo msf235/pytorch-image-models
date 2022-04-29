@@ -337,11 +337,28 @@ def main():
     args.world_size = 1
     args.rank = 0  # global rank
     if args.distributed:
-        args.device = 'cuda:%d' % args.local_rank
-        torch.cuda.set_device(args.local_rank)
+        rank = args.local_rank
+        args.device = 'cuda:%d' % rank
+        torch.cuda.set_device(rank)
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
-        args.world_size = torch.distributed.get_world_size()
+        # for k in range(4):
+            # rank = args.local_rank + k
+            # try:
+                # args.device = 'cuda:%d' % rank
+                # torch.cuda.set_device(rank)
+                # torch.distributed.init_process_group(backend='nccl', init_method='env://')
+            # except RuntimeError:
+                # if k == 3:
+                    # raise
+        # try:
+            # torch.distributed.init_process_group(backend='nccl', init_method='env://')
+        # except RuntimeError:
+            # os.environ['MASTER_ADDR'] = 'localhost'
+            # os.environ['MASTER_PORT'] = '29502'
+            # torch.distributed.init_process_group(backend='nccl', rank=0,
+                                                 # init_method='env://')
         args.rank = torch.distributed.get_rank()
+        args.world_size = torch.distributed.get_world_size()
         _logger.info('Training in distributed mode with multiple processes, 1 GPU per process. Process %d, total %d.'
                      % (args.rank, args.world_size))
     else:
@@ -490,7 +507,7 @@ def main():
         args.dataset,
         root=args.data_dir, split=args.train_split, is_training=True,
         batch_size=args.batch_size, repeats=args.epoch_repeats)
-    pretrain_batchsize = 256
+    pretrain_batchsize = 128
     dataset_pretrain = create_dataset(
         args.dataset,
         root=args.data_dir, split=args.train_split, is_training=True,
@@ -612,7 +629,7 @@ def main():
             # hid = hid[:, rand_ind]
             pr_dim = metrics.get_pr_dim(hid)
             loss += (pr_dim - pretrain_batchsize)**2
-            _logger.info("Dim: ", round(pr_dim.item()))
+            _logger.info("Dim: ", str(round(pr_dim.item())))
             # print("Dim: ", round(pr_dim.item()))
         return loss / len(hids)
 
