@@ -1,7 +1,10 @@
 import timm
+import torch
+from pathlib import Path
 from timm import data
 from timm import models
 from matplotlib import pyplot as plt
+from timm.models import create_model, safe_model_name, resume_checkpoint, load_checkpoint
 
 def get_pcs_covariance(X, pcs, original_shape=True, return_extra=False):
     """
@@ -38,30 +41,66 @@ def get_pcs_covariance(X, pcs, original_shape=True, return_extra=False):
     else:
         return pca_proj
 
+def within_over_across_class_mean_dist(X, y):
+    cs = set(y.tolist())
+    m = len(cs)
+    ds = torch.zeros(m,m)
+    for k1 in range(m):
+        for k2 in range(k1, m):
+            xk1 = X[y == k1]
+            xk1 = xk1.reshape(1, xk1.shape[0], -1) 
+            xk2 = X[y == k2]
+            xk2 = xk2.reshape(1, xk2.shape[0], -1) 
+            d = torch.cdist(xk1, xk2)[0]
+            r1 = d.shape[0]
+            r2 = d.shape[1]
+            if k1 == k2:
+                ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
+            else:
+                ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
+            
+    d_within = torch.mean(torch.diag(ds))
+    d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
 
-vgg11 = timm.create_model('vgg11', in_chans=1)
+    return (d_within / d_across).item()
+
+# %% 
+
+vgg13 = timm.create_model('vgg13', num_classes=10)
+outdir = Path('output/train/run_3/')
+load_file = outdir/'last.pth.tar'
+# load_file = 'output/train/run_1'
+final_epoch = resume_checkpoint(vgg13, load_file)
+# vgg13.cuda()
+# vgg13.cpu()
+
+# vgg11.load_state_dict(load_file)
+# %% 
 cifar = data.create_dataset('torch/cifar10', 'cifar10', download=True,
-                            split='val')
+                            split='train')
+                            # split='val')
 
-args = {}
-args['input_size'] = (3, 32, 32)
-args['mean'] = (0.4913997551666284, 0.48215855929893703, 0.4465309133731618)
-args['std'] = (0.24703225141799082, 0.24348516474564, 0.26158783926049628)
-args['crop_pct'] = 1
-data_config = data.config.resolve_data_config(args, model=vgg11)
 loader_eval = data.create_loader(
     cifar,
     input_size=(3, 32, 32),
-    batch_size=20,
+    batch_size=1000,
     is_training=False,
-    interpolation=data_config['interpolation'],
-    mean=data_config['mean'],
-    std=data_config['std'],
-    crop_pct=data_config['crop_pct'],
 )
 vald = next(iter(loader_eval))
-model_out = vgg11(vald[0])
-features = vgg11.forward_features(vald[0])
-feature_pcs = get_pcs_covariance(features, [0,1,2], original_shape=False)   
+valdx = vald[0].cpu()
+valdy = vald[1].cpu()
+del vald
+model_out = vgg13(valdx)
+features = vgg13.forward_features(valdx).data.squeeze()
+U, S, V = torch.svd(features)
+feature_pcs = U[:, :3] * S[:3]
+# feature_pcs = get_pcs_covariance(features, [0,1,2])   
+fig = plt.figure()
+ax = plt.axes(projection='3d')
+ax.scatter(feature_pcs[:,0], feature_pcs[:,1], feature_pcs[:,2],
+          c=valdy)
+fig.savefig(
+fig.show()
 # b1 = cifar[:20]
 
+collapse = within_over_across_class_mean_dist(valdx, valdy)

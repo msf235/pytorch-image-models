@@ -75,7 +75,7 @@ parser.add_argument('-c', '--config', default='', type=str, metavar='FILE',
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 
 # Dataset parameters
-parser.add_argument('data_dir', metavar='DIR',
+parser.add_argument('--data_dir', metavar='DIR', default='',
                     help='path to dataset')
 parser.add_argument('--dataset', '-d', metavar='NAME', default='',
                     help='dataset type (default: ImageFolder/ImageTar if empty)')
@@ -326,10 +326,18 @@ def _parse_args():
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
     return args, args_text
 
-
 def main():
-    setup_default_logging()
     args, args_text = _parse_args()
+    train_model(vars(args))
+
+def train_model(args_set):
+    setup_default_logging()
+    # args, args_text = _parse_args()
+    args, args_text = _parse_args()
+    for key in args_set:
+        args.__setattr__(key, args_set[key])
+
+    args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
     args_mom = copy.deepcopy(vars(args))
     del args_mom['dataset_download']
     del args_mom['resume']
