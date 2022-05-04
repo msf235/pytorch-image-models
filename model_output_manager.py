@@ -90,7 +90,7 @@ def get_run_entry(param_dict, output_dir, prompt_for_user_input=True):
     param_df = pd.read_csv(table_path, index_col=0, dtype=str,
                            keep_default_na=False)
     missing_keys =  set(param_df.columns) - set(param_dict.keys())
-    if len(missing_keys) > 0 and not ignore_missing:
+    if len(missing_keys) > 0:
         print("""The following keys are in the run table but not in param_dict.
 Please specify these keys in param_dict:""")
         print(missing_keys)

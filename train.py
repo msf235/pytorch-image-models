@@ -18,6 +18,7 @@ import argparse
 import time
 import yaml
 import os
+import glob
 import logging
 from collections import OrderedDict
 from contextlib import suppress
@@ -99,6 +100,8 @@ parser.add_argument('--initial-checkpoint', default='', type=str, metavar='PATH'
                     # help='Resume full model and optimizer state from checkpoint (default: none)')
 parser.add_argument('--resume', action='store_true', default=False,
                     help='Resume full model and optimizer state from checkpoint (default: none)')
+parser.add_argument('--check-point-every', type=int, default=None, metavar='N',
+                    help='number of epochs between saves. (default: none)')
 parser.add_argument('--no-resume-opt', action='store_true', default=False,
                     help='prevent resume of optimizer state when resuming model')
 parser.add_argument('--num-classes', type=int, default=None, metavar='N',
@@ -207,6 +210,8 @@ parser.add_argument('--aug-repeats', type=float, default=0,
                     help='Number of augmentation repetitions (distributed training only) (default: 0)')
 parser.add_argument('--aug-splits', type=int, default=0,
                     help='Number of augmentation splits (default: 0, valid: 0 or >=2)')
+parser.add_argument('--mse-loss', action='store_true', default=False,
+                    help='Enable MSE loss.')
 parser.add_argument('--jsd-loss', action='store_true', default=False,
                     help='Enable Jensen-Shannon Divergence + CE loss. Use with `--aug-splits`.')
 parser.add_argument('--bce-loss', action='store_true', default=False,
@@ -330,12 +335,12 @@ def main():
     args, args_text = _parse_args()
     train_model(vars(args))
 
-def train_model(args_set):
+def train(args_set_dict):
     setup_default_logging()
     # args, args_text = _parse_args()
     args, args_text = _parse_args()
-    for key in args_set:
-        args.__setattr__(key, args_set[key])
+    for key in args_set_dict:
+        args.__setattr__(key, args_set_dict[key])
 
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
     args_mom = copy.deepcopy(vars(args))
@@ -399,6 +404,11 @@ def train_model(args_set):
     if args.fuser:
         set_jit_fuser(args.fuser)
 
+    
+    if hasattr(args, 'input_size') and args.input_size is not None:
+        in_chans = args.input_size[0]
+    else:
+        in_chans = 3
     model = create_model(
         args.model,
         pretrained=args.pretrained,
@@ -411,7 +421,9 @@ def train_model(args_set):
         bn_momentum=args.bn_momentum,
         bn_eps=args.bn_eps,
         scriptable=args.torchscript,
-        checkpoint_path=args.initial_checkpoint)
+        checkpoint_path=args.initial_checkpoint,
+        in_chans=in_chans
+    )
     if args.num_classes is None:
         assert hasattr(model, 'num_classes'), 'Model must have `num_classes` attr if not set on cmd line/config.'
         args.num_classes = model.num_classes  # FIXME handle model default vs config num_classes more elegantly
@@ -500,6 +512,9 @@ def train_model(args_set):
         print("Training from scratch and saving output to:")
         print(run_dir)
         print()
+        files = glob.glob(str(run_dir/'*'))
+        for f in files:
+            os.remove(f)
     elif not run_exists:
         print()
         print("No previous runs encountered. Training from scratch.")
@@ -633,7 +648,12 @@ def train_model(args_set):
     )
 
     # setup loss function
-    if args.jsd_loss:
+    if args.mse_loss:
+        criterion = nn.MSELoss()
+        def train_loss_fn(out, target):
+            criterion(out, F.one_hot(target,
+                                     num_classes=args.num_classes).float())
+    elif args.jsd_loss:
         assert num_aug_splits > 1  # JSD only valid with aug splits set
         train_loss_fn = JsdCrossEntropy(num_splits=num_aug_splits, smoothing=args.smoothing)
     elif mixup_active:
@@ -661,11 +681,20 @@ def train_model(args_set):
     if args.rank == 0:
         decreasing = True if eval_metric == 'loss' else False
         saver = CheckpointSaver(
-            model=model, optimizer=optimizer, args=args, model_ema=model_ema, amp_scaler=loss_scaler,
-            checkpoint_dir=run_dir, recovery_dir=run_dir, decreasing=decreasing, max_history=args.checkpoint_hist)
+            model=model, optimizer=optimizer, args=args, model_ema=model_ema,
+            amp_scaler=loss_scaler,
+            checkpoint_dir=run_dir, recovery_dir=run_dir,
+            decreasing=decreasing, max_history=args.checkpoint_hist)
         with open(os.path.join(run_dir, 'args.yaml'), 'w') as f:
             f.write(args_text)
 
+    # ============= Training loop =================
+    if args.check_point_every is not None:
+        state_dict = get_state_dict(model)
+        savedict = dict(epoch=0, arch=type(model).__name__.lower(),
+                        state_dict=state_dict, optimizer=optimizer.state_dict(),
+                        version=2, args=args)
+        torch.save(savedict, run_dir/f'checkpoint_epoch_0.pth')
     try:
         for epoch in range(start_epoch, num_epochs):
             if args.distributed and hasattr(loader_train.sampler, 'set_epoch'):
@@ -702,12 +731,21 @@ def train_model(args_set):
             if saver is not None:
                 # save proper checkpoint with eval metric
                 save_metric = eval_metrics[eval_metric]
-                best_metric, best_epoch = saver.save_checkpoint(epoch, metric=save_metric)
+                best_metric, best_epoch = saver.save_checkpoint(epoch+1, metric=save_metric)
 
+            if args.check_point_every is not None:
+                if args.check_point_every % (epoch + 1):
+                    state_dict = get_state_dict(model)
+                    savedict = dict(epoch=epoch+1, arch=type(model).__name__.lower(),
+                                    state_dict=state_dict, optimizer=optimizer.state_dict(),
+                                    version=2, args=args, metric=eval_metrics[eval_metric])
+                torch.save(savedict, run_dir/f'checkpoint_epoch_{epoch+1}.pth')
     except KeyboardInterrupt:
         pass
     if best_metric is not None:
         _logger.info('*** Best metric: {0} (epoch {1})'.format(best_metric, best_epoch))
+
+    return model, loader_train, loader_eval, eval_metrics
 
 
 def train_one_epoch(
