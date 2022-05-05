@@ -100,8 +100,10 @@ parser.add_argument('--initial-checkpoint', default='', type=str, metavar='PATH'
                     # help='Resume full model and optimizer state from checkpoint (default: none)')
 parser.add_argument('--resume', action='store_true', default=False,
                     help='Resume full model and optimizer state from checkpoint (default: none)')
-parser.add_argument('--check-point-every', type=int, default=None, metavar='N',
+parser.add_argument('--checkpoint-every', type=int, default=None, metavar='N',
                     help='number of epochs between saves. (default: none)')
+parser.add_argument('--checkpoint-first', type=int, default=None, metavar='N',
+                    help='number of epochs to save every epoch. (default: none)')
 parser.add_argument('--no-resume-opt', action='store_true', default=False,
                     help='prevent resume of optimizer state when resuming model')
 parser.add_argument('--num-classes', type=int, default=None, metavar='N',
@@ -688,13 +690,17 @@ def train(args_set_dict):
         with open(os.path.join(run_dir, 'args.yaml'), 'w') as f:
             f.write(args_text)
 
+    if args.checkpoint_first is not None:
+        checkpoint_offset = args.checkpoint_first
+    else:
+        checkpoint_offset = 0
     # ============= Training loop =================
-    if args.check_point_every is not None:
+    if args.checkpoint_every is not None:
         state_dict = get_state_dict(model)
         savedict = dict(epoch=0, arch=type(model).__name__.lower(),
                         state_dict=state_dict, optimizer=optimizer.state_dict(),
                         version=2, args=args)
-        torch.save(savedict, run_dir/f'checkpoint_epoch_0.pth')
+        torch.save(savedict, run_dir/f'checkpoint-epoch-0.pth')
     try:
         for epoch in range(start_epoch, num_epochs):
             if args.distributed and hasattr(loader_train.sampler, 'set_epoch'):
@@ -733,19 +739,35 @@ def train(args_set_dict):
                 save_metric = eval_metrics[eval_metric]
                 best_metric, best_epoch = saver.save_checkpoint(epoch+1, metric=save_metric)
 
-            if args.check_point_every is not None:
-                if args.check_point_every % (epoch + 1):
+            if epoch > args.checkpoint_first - 1:
+                if (epoch + 1 - checkpoint_offset) % args.checkpoint_every == 0:
                     state_dict = get_state_dict(model)
-                    savedict = dict(epoch=epoch+1, arch=type(model).__name__.lower(),
-                                    state_dict=state_dict, optimizer=optimizer.state_dict(),
-                                    version=2, args=args, metric=eval_metrics[eval_metric])
-                torch.save(savedict, run_dir/f'checkpoint_epoch_{epoch+1}.pth')
+                    savedict = dict(epoch=epoch+1,
+                                    arch=type(model).__name__.lower(),
+                                    state_dict=state_dict,
+                                    optimizer=optimizer.state_dict(),
+                                    version=2, args=args,
+                                    metric=eval_metrics[eval_metric])
+                    torch.save(savedict,
+                               run_dir/f'checkpoint-epoch-{epoch+1}.pth')
+            else:
+                state_dict = get_state_dict(model)
+                savedict = dict(epoch=epoch+1,
+                                arch=type(model).__name__.lower(),
+                                state_dict=state_dict,
+                                optimizer=optimizer.state_dict(),
+                                version=2, args=args,
+                                metric=eval_metrics[eval_metric])
+                torch.save(savedict,
+                           run_dir/f'checkpoint-epoch-{epoch+1}.pth')
+
     except KeyboardInterrupt:
         pass
     if best_metric is not None:
-        _logger.info('*** Best metric: {0} (epoch {1})'.format(best_metric, best_epoch))
+        _logger.info(
+            '*** Best metric: {0} (epoch {1})'.format(best_metric, best_epoch))
 
-    return model, loader_train, loader_eval, eval_metrics
+    return model, loader_train, loader_eval, run_dir
 
 
 def train_one_epoch(
