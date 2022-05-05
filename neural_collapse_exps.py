@@ -12,15 +12,16 @@ def product_dict(dict_of_lists):
 
 
 core_params = dict(
-    output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse',
+    # output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse',
     # output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_backup',
-    checkpoint_hist=0,
+    output='output_neural_collapse',
+    checkpoint_hist=1,
     dataset_download=True, cooldown_epochs=0,
     smoothing=0, sched='multistep', decay_rate=0.1,
     epochs=epochs, decay_epochs=[epochs//3, epochs*2//3],
     batch_size=128, weight_decay=0, momentum=0,
     interpolation='', train_interpolation='',
-    checkpoint_every=10, checkpoint_first=10, resume=False,
+    checkpoint_every=10, checkpoint_first=10, resume=True,
 )
 
 ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist', num_classes=10,
