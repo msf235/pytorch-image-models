@@ -27,31 +27,31 @@ outdir = exp.core_params['output']
 
 
 @memory.cache
-def get_compressions_over_training(param_dict):
-    out = train.train(param_dict)
-    model, loader_train, loader_val, run_dir = out
-    epochs = load_utils.get_epochs(run_dir)
+def get_compressions_over_training(param_dict_list):
     df = pd.DataFrame()
-
-    for epoch in epochs:
-        tic = time.time()
-        load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
-        compression_train = utils.get_compression(model, loader_train, run_dir,
-                                                  n_batches)
-        compression_val = utils.get_compression(model, loader_val, run_dir,
-                                                n_batches)
-        df.append({'epoch': epoch, 'compression': compression_train,
-                   'mode': 'train'}, ignore_index=True)
-        df.append({'epoch': epoch, 'compression': compression_val,
-                   'mode': 'val'}, ignore_index=True)
-        toc = time.time()
-        print(epoch, '/', len(epochs), toc-tic)
-    df['mode'] = df['mode'].astype(pd.Categorical)
-    df['epoch'] = df['epoch'].astype(int)
+    for param_dict in param_dict_list:
+        out = train.train(param_dict)
+        model, loader_train, loader_val, run_dir = out
+        epochs = load_utils.get_epochs(run_dir)
+        for epoch in epochs:
+            tic = time.time()
+            load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
+            compression_train = utils.get_compression(model, loader_train, run_dir,
+                                                      n_batches)
+            compression_val = utils.get_compression(model, loader_val, run_dir,
+                                                    n_batches)
+            df.append({'epoch': epoch, 'compression': compression_train,
+                       'mode': 'train'}, ignore_index=True)
+            df.append({'epoch': epoch, 'compression': compression_val,
+                       'mode': 'val'}, ignore_index=True)
+            toc = time.time()
+            print(epoch, '/', len(epochs), toc-tic)
+        df['mode'] = df['mode'].astype(pd.Categorical)
+        df['epoch'] = df['epoch'].astype(int)
     return df
 
-def print_compressions_over_training(param_dict):
-    df = get_compressions_over_training(param_dict)
+def plots_df(df, x, y, hue_key, new_fig_keys):
+    # df = get_compressions_over_training(param_dict)
     # df_train = df.copy().drop(columns='compression_val')
     # df_val = df.copy().drop(columns='compression_train')
     # sbn.lineplot(data=df_train, x='epoch', y='compression_train')
