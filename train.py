@@ -31,7 +31,7 @@ import torch.nn as nn
 import torchvision.utils
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
 
-import model_output_manager as mom
+import model_output_manager_hash as mom
 
 from timm.data import create_dataset, create_loader, resolve_data_config, Mixup, FastCollateMixup, AugMixDataset
 from timm.models import create_model, safe_model_name, resume_checkpoint, load_checkpoint,\
@@ -337,6 +337,7 @@ def main():
     args, args_text = _parse_args()
     train_model(vars(args))
 
+
 def train(args_set_dict):
     setup_default_logging()
     # args, args_text = _parse_args()
@@ -503,10 +504,10 @@ def train(args_set_dict):
             # str(data_config['input_size'][-1])
         # ])
         exp_name = ''
-    output_dir = get_outdir(args.output if args.output else './output/train', exp_name)
-    # output_dir = './output/train/
+    output_dir = get_outdir(args.output if args.output
+                            else './output/train', exp_name)
     run_exists = mom.run_exists(args_mom, output_dir)
-    run_id = mom.get_run_entry(args_mom, output_dir)
+    run_id = mom.get_run_hash(args_mom, output_dir)
     run_dir = Path(output_dir) / f"run_{run_id}/"
     run_dir.mkdir(exist_ok=True)
     if not args.resume:

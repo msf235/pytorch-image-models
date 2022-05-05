@@ -12,9 +12,9 @@ def product_dict(dict_of_lists):
 
 
 core_params = dict(
-    output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse',
+    # output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse',
     # output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_backup',
-    # output='output_neural_collapse',
+    output='output_neural_collapse',
     checkpoint_hist=1,
     dataset_download=True, cooldown_epochs=0,
     smoothing=0, sched='multistep', decay_rate=0.1,

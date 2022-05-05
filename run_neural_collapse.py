@@ -50,7 +50,7 @@ def get_compressions_over_training(param_dict_list):
         df['epoch'] = df['epoch'].astype(int)
     return df
 
-def plots_df(df, x, y, hue_key, new_fig_keys):
+# def plots_df(df, x, y, hue_key, new_fig_keys):
     # df = get_compressions_over_training(param_dict)
     # df_train = df.copy().drop(columns='compression_val')
     # df_val = df.copy().drop(columns='compression_train')
@@ -59,9 +59,9 @@ def plots_df(df, x, y, hue_key, new_fig_keys):
     # sbn.lineplot(ax=ax, data=df, x='epoch', y='compression', hue='mode')
     # fig.savefig('test.pdf')
 
+
 if __name__ == '__main__':
-    for ps in exp.ps_resnet18_mnist_sgd:
-        get_compressions_over_training(ps)
+    get_compressions_over_training(exp.ps_resnet18_mnist_sgd)
 
     # df = get_compressions_over_training(
        # exp.ps_resnet18_mnist_sgd)
