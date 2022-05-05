@@ -109,8 +109,8 @@ def resume_checkpoint(model, checkpoint_path, optimizer=None, loss_scaler=None, 
                 _logger.info("Loaded checkpoint '{}'".format(checkpoint_path))
         return resume_epoch
     else:
-        _logger.error("No checkpoint found at '{}'".format(checkpoint_path))
-        raise FileNotFoundError()
+        _logger.error("No checkpoint found at '{}'. Training from scratch.".format(checkpoint_path))
+        # raise FileNotFoundError()
 
 
 def _resolve_pretrained_source(pretrained_cfg):

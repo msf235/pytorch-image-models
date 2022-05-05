@@ -21,7 +21,7 @@ plt.rcParams['axes.titlesize'] = 8
 figsize_default = (3,2.5)
 
 memory = joblib.Memory(location='.neural_collapse_cache')
-# memory.clear()
+memory.clear()
 n_batches = 2
 outdir = exp.core_params['output']
 

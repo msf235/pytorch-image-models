@@ -20,7 +20,7 @@ core_params = dict(
     epochs=epochs, decay_epochs=[epochs//3, epochs*2//3],
     batch_size=128, weight_decay=0, momentum=0,
     interpolation='', train_interpolation='',
-    checkpoint_every=10, checkpoint_first=10, resume=True,
+    checkpoint_every=10, checkpoint_first=10, resume=False,
 )
 
 ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist', num_classes=10,
