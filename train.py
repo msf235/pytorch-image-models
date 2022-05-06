@@ -531,6 +531,7 @@ def train(args_set_dict):
             optimizer=None if args.no_resume_opt else optimizer,
             loss_scaler=None if args.no_resume_opt else loss_scaler,
             log_info=args.local_rank == 0)
+    breakpoint()
 
     # setup exponential moving average of model weights, SWA could be used here too
     model_ema = None
@@ -628,6 +629,7 @@ def train(args_set_dict):
         mean=data_config['mean'],
         std=data_config['std'],
         num_workers=args.workers,
+        persistent_workers=args.workers>0,
         distributed=args.distributed,
         collate_fn=collate_fn,
         pin_memory=args.pin_mem,
@@ -645,6 +647,7 @@ def train(args_set_dict):
         mean=data_config['mean'],
         std=data_config['std'],
         num_workers=args.workers,
+        persistent_workers=args.workers>0,
         distributed=args.distributed,
         crop_pct=data_config['crop_pct'],
         pin_memory=args.pin_mem,

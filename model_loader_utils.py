@@ -6,7 +6,10 @@ import traceback
 import warnings
 import sys
 
-checkpnt_str = 'checkpoint_epoch_*.pth'
+checkpnt_str = 'checkpoint-epoch-*.pth'
+
+def extract_epoch(checkpnt_str):
+    return int(str(checkpnt_str).split('-')[2][:-4])
 
 def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
     log = file if hasattr(file, 'write') else sys.stderr
@@ -15,12 +18,11 @@ def warn_with_traceback(message, category, filename, lineno, file=None, line=Non
 
 warnings.showwarning = warn_with_traceback
 
-def get_epoch_and_save_from_savestr(savestr):
+def get_epoch(savestr):
     savestr = str(savestr)
-    parts = savestr.split('_')
-    epoch = int(parts[1])
-    save = int(parts[3].split('.')[0])
-    return epoch, save
+    parts = savestr.split('-')
+    epoch = int(parts[2])
+    return epoch
 
 def load_model(model, filename, optimizer=None, learning_scheduler=None):
     """
@@ -77,7 +79,7 @@ def get_epochs(out_dir):
     """
     out_dir = Path(out_dir)
     ps = Path(out_dir).glob(checkpnt_str)
-    epochs = sorted(list({int(str(p.parts[-1]).split('_')[2][:-4]) for p in ps}))
+    epochs = sorted(list({extract_epoch(p.parts[-1]) for p in ps}))
     return epochs
 
 def get_max_epoch(out_dir):
@@ -96,8 +98,7 @@ def get_max_epoch(out_dir):
     """
     out_dir = Path(out_dir)
     ps = list(Path(out_dir).glob(checkpnt_str))
-    # import ipdb; ipdb.set_trace()
-    epochs = [get_epoch_and_save_from_savestr(str(p.parts[-1]))[0] for p in ps]
+    epochs = sorted(list({extract_epoch(p.parts[-1]) for p in ps}))
     max_epoch_id = torch.argmax(torch.tensor(epochs)).item()
     max_epoch = epochs[max_epoch_id]
     return max_epoch, max_save
@@ -121,7 +122,7 @@ def get_max_epoch(out_dir, require_save_zero=True):
         ps = Path(out_dir).glob(checkpnt_str)
     else:
         ps = Path(out_dir).glob(checkpnt_str)
-    epochs = [get_epoch_and_save_from_savestr(str(p.parts[-1]))[0] for p in ps]
+    epochs = sorted(list({extract_epoch(p.parts[-1]) for p in ps}))
     if len(epochs) > 0:
         return max(epochs)
     else:
