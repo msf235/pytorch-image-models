@@ -97,12 +97,12 @@ if __name__ == '__main__':
     # fn = get_compressions_over_training
     fn = train.train
     fn_par = joblib.delayed(fn)
-    fn(exp.ps_resnet18_mnist_rmsprop[0])
-    # ps_set1 = exp.ps_resnet18_mnist_rmsprop + exp.ps_resnet18_mnist_sgd
-    # ps_set2 = exp.ps_resnet18_cifar10_rmsprop 
-    # ps_set3 = exp.ps_resnet18_cifar10_sgd
-    # ps_all = ps_set1 + ps_set2 + ps_set3    
-    # ps_chunks = chunks(ps_all, len(ps_all//args.j))
+    # fn(exp.ps_resnet18_mnist_rmsprop[0])
+    ps_set1 = exp.ps_resnet18_mnist_rmsprop + exp.ps_resnet18_mnist_sgd
+    ps_set2 = exp.ps_resnet18_cifar10_rmsprop 
+    ps_set3 = exp.ps_resnet18_cifar10_sgd
+    ps_all = ps_set1 + ps_set2 + ps_set3
+    ps_chunks = chunks(ps_all, len(ps_all)//args.j)
     # fn(ps_chunks[args.r])
     
 
