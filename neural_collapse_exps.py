@@ -1,6 +1,7 @@
 import itertools
 import copy
 import pandas as pd
+from pathlib import Path
 
 epochs = 350
 
@@ -10,9 +11,13 @@ def product_dict(dict_of_lists):
     d = [dict(zip(keys, val_tup)) for val_tup in vals_it]
     return d
 
+if Path('/n').exists():
+    out = '/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse'
+else:
+    out = 'output_neural_collapse'
 
 core_params = dict(
-    output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse',
+    output=out,
     # output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_backup',
     # output='output_neural_collapse',
     checkpoint_hist=1,

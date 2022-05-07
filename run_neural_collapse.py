@@ -1,4 +1,5 @@
 import time
+import sys
 import argparse
 import itertools
 import torch
@@ -13,11 +14,6 @@ import neural_collapse_exps as exp
 import joblib
 from torch.multiprocessing import Process, Lock
 
-parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('-r', default=0, help='Run number')
-parser.add_argument('-j', default=1, help='Total jobs')
-args = parser.parse_known_args()[0]
-# torch.multiprocessing.set_start_method('spawn')
 # %% 
 
 sbn.set_palette('colorblind')
@@ -34,8 +30,14 @@ figsize_default = (3,2.5)
 memory = joblib.Memory(location='.neural_collapse_cache')
 memory.clear()
 n_batches = 2
-n_jobs = 4
-# n_jobs = 1
+n_jobs = 6
+run_num = 3
+# parser = argparse.ArgumentParser()
+# parser.add_argument('n_jobs', type=int)
+# parser.add_argument('run_num', type=int)
+# args = parser.parse_args()
+# n_jobs = args.n_jobs
+# run_num = args.run_num
 outdir = exp.core_params['output']
 
 
@@ -95,6 +97,7 @@ def chunks(lst, n):
 if __name__ == '__main__':
     # get_compressions_over_training(exp.ps_resnet18_mnist_sgd)
     # fn = get_compressions_over_training
+    # sys.exit()
     fn = train.train
     fn_par = joblib.delayed(fn)
     # fn(exp.ps_resnet18_mnist_rmsprop[0])
@@ -102,8 +105,10 @@ if __name__ == '__main__':
     ps_set2 = exp.ps_resnet18_cifar10_rmsprop 
     ps_set3 = exp.ps_resnet18_cifar10_sgd
     ps_all = ps_set1 + ps_set2 + ps_set3
-    ps_chunks = chunks(ps_all, len(ps_all)//args.j)
-    # fn(ps_chunks[args.r])
+    ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
+    # breakpoint()
+    ps_chunk = ps_chunks[run_num-1]
+    [fn(ps_chunk[k1]) for k1 in range(len(ps_chunk))]
     
 
 
