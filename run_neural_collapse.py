@@ -30,8 +30,8 @@ figsize_default = (3,2.5)
 memory = joblib.Memory(location='.neural_collapse_cache')
 memory.clear()
 n_batches = 2
-n_jobs = 6
-run_num = 3
+n_jobs = 12
+run_num = 5
 # parser = argparse.ArgumentParser()
 # parser.add_argument('n_jobs', type=int)
 # parser.add_argument('run_num', type=int)
