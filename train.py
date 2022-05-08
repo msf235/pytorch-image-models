@@ -66,7 +66,6 @@ except ImportError:
 
 torch.backends.cudnn.benchmark = True
 _logger = logging.getLogger('train')
-_logger = logging.getLogger()
 # if (_logger.hasHandlers()):
     # _logger.handlers.clear()
 # _logger.propagate = False
@@ -345,7 +344,6 @@ def main():
 
 def train(args_set_dict):
     setup_default_logging()
-    # args, args_text = _parse_args()
     args, args_text = _parse_args()
     for key in args_set_dict:
         if not hasattr(args, key):

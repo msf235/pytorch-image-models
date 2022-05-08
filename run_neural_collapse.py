@@ -35,7 +35,7 @@ memory.clear()
 
 n_batches = 2
 n_jobs = 12
-run_num = 9
+run_num = 3
 # parser = argparse.ArgumentParser()
 # parser.add_argument('n_jobs', type=int)
 # parser.add_argument('run_num', type=int)
@@ -133,9 +133,11 @@ if __name__ == '__main__':
     ps_chunk = ps_chunks[run_num-1]
     print(f"Running chunk {run_num} / {len(ps_chunks)}")
     print(f"This chunk has size {len(ps_chunk)}")
-    [fn(ps_chunk[k1]) for k1 in range(len(ps_chunk))]
-    # for ps in ps_all:
-        # fn(ps)
+    # [fn(ps_chunk[k1]) for k1 in range(len(ps_chunk))]
+    # fn(ps_all[-2])
+    # for k1, ps in enumerate(ps_all):
+        # print(k1)
+    fn(ps_all[22])
     # fn(ps_all[run_num-1])
     # df = pd.DataFrame()
     # for ps in ps_all:
