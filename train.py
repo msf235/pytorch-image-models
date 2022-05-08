@@ -30,6 +30,7 @@ import torch
 import torch.nn as nn
 import torchvision.utils
 from torch.nn.parallel import DistributedDataParallel as NativeDDP
+import torch.nn.functional as F
 
 import model_output_manager_hash as mom
 
@@ -660,9 +661,9 @@ def train(args_set_dict):
 
     # setup loss function
     if args.mse_loss:
-        criterion = nn.MSELoss()
+        criterion = nn.MSELoss().cuda()
         def train_loss_fn(out, target):
-            criterion(out, F.one_hot(target,
+            return criterion(out, F.one_hot(target,
                                      num_classes=args.num_classes).float())
     elif args.jsd_loss:
         assert num_aug_splits > 1  # JSD only valid with aug splits set
@@ -680,8 +681,12 @@ def train(args_set_dict):
             train_loss_fn = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     else:
         train_loss_fn = nn.CrossEntropyLoss()
-    train_loss_fn = train_loss_fn.cuda()
-    validate_loss_fn = nn.CrossEntropyLoss().cuda()
+
+    if args.mse_loss:
+        validate_loss_fn = train_loss_fn
+    else:
+        train_loss_fn = train_loss_fn.cuda()
+        validate_loss_fn = nn.CrossEntropyLoss().cuda()
 
     # setup checkpoint saver and eval metric tracking
     eval_metric = args.eval_metric
