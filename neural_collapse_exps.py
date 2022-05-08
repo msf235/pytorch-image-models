@@ -44,15 +44,15 @@ ps_imagenet = dict(core_params,
 ps_sgd = dict(
     opt=('momentum',),
     lr=(0.0184,),
-    mse=(False, True),
+    mse_loss=(False, True),
     momentum=(0, .4, .9),
-    decay=(0, 1e-4, 5e-4, 1e-3),
+    weight_decay=(0, 1e-4, 5e-4, 1e-3),
 )
 ps_sgd_list = product_dict(ps_sgd)
 ps_rmsprop = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
-    mse=(False, True),
+    mse_loss=(False, True),
 )
 ps_rmsprop_list = product_dict(ps_rmsprop)
 

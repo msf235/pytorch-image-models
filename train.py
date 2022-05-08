@@ -65,6 +65,10 @@ except ImportError:
 
 torch.backends.cudnn.benchmark = True
 _logger = logging.getLogger('train')
+_logger = logging.getLogger()
+# if (_logger.hasHandlers()):
+    # _logger.handlers.clear()
+# _logger.propagate = False
 
 # The first arg parser parses out only the --config argument, this argument is used to
 # load a yaml file containing key-values that override the defaults for the main parser below
@@ -343,6 +347,8 @@ def train(args_set_dict):
     # args, args_text = _parse_args()
     args, args_text = _parse_args()
     for key in args_set_dict:
+        if not hasattr(args, key):
+            raise TypeError(f"train() got an unexpected keyword argument {key}")
         args.__setattr__(key, args_set_dict[key])
 
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
@@ -770,7 +776,7 @@ def train(args_set_dict):
         _logger.info(
             '*** Best metric: {0} (epoch {1})'.format(best_metric, best_epoch))
 
-    return model, loader_train, loader_eval, run_dir
+    return model, loader_train, loader_eval, run_dir, args_mom
 
 
 def train_one_epoch(
