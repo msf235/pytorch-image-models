@@ -56,11 +56,10 @@ def load_model(model, filename, optimizer=None, learning_scheduler=None):
     except FileNotFoundError:
         return -1
     model.load_state_dict(model_state_info['state_dict'])
-    breakpoint()
     if optimizer is not None:
-        optimizer.load_state_dict(model_state_info['optimizer_state_dict'])
-    if learning_scheduler is not None:
-        learning_scheduler.load_state_dict(model_state_info['learning_scheduler_state_dict'])
+        optimizer.load_state_dict(model_state_info['optimizer'])
+    # if learning_scheduler is not None:
+        # learning_scheduler.load_state_dict(model_state_info['learning_scheduler_state_dict'])
 
 def get_epochs(out_dir):
     """
@@ -152,8 +151,7 @@ def load_model_from_epoch_and_dir(model, out_dir, epoch_num, save_num=0, optimiz
     out_dir = Path(out_dir)
     if epoch_num == -1:
         epoch_num = get_max_epoch(out_dir)
-    filename = out_dir/checkpnt_str
-    breakpoint()
+    filename = out_dir/(checkpnt_str.replace('*', str(epoch_num)))
     return load_model(model, filename, optimizer, learning_scheduler)
 
 def load_model_mom(model, epoch, arg_dict, table_path, compare_exclude=[], optimizer=None, learning_scheduler=None):

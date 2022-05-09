@@ -27,14 +27,16 @@ plt.rcParams['axes.labelsize'] = 7
 plt.rcParams['axes.spines.right'] = False
 plt.rcParams['axes.spines.top'] = False
 plt.rcParams['axes.titlesize'] = 8
-figsize_default = (3,2.5)
+# figsize_default = (3,2.5)
+height_default = 2
 
 memory = joblib.Memory(location='.neural_collapse_cache',
                        verbose=40)
 # memory.clear()
 
 n_batches = 2
-n_jobs = 12
+# n_jobs = 12
+n_jobs = 4
 run_num = 3
 # parser = argparse.ArgumentParser()
 # parser.add_argument('n_jobs', type=int)
@@ -77,10 +79,10 @@ def get_compressions_over_training(param_dict,
     if epochs_idx is not None:
         epochs = epochs[epochs_idx]
     for k1, epoch in enumerate(epochs):
-        # compression_train, compression_val = get_compressions_cached(
-            # param_dict, epoch, n_batches)
-        compression_train, compression_val = get_compressions(
+        compression_train, compression_val = get_compressions_cached(
             param_dict, epoch, n_batches)
+        # compression_train, compression_val = get_compressions(
+            # param_dict, epoch, n_batches)
         d = {'epoch': epoch, 'compression': compression_train, 'mode': 'train'}
         d = {**d, **pd_mom}
         df = pd.concat((df, pd.DataFrame(d, index=[0])), ignore_index=True)
@@ -91,6 +93,16 @@ def get_compressions_over_training(param_dict,
     df['epoch'] = df['epoch'].astype(int)
     return df
 
+
+@memory.cache
+def get_compressions_over_training_batch(param_dict_list, epochs_idx=None,
+                                         n_batches=n_batches,):
+    dfs = []
+    for param_dict in param_dict_list:
+        dfs += [get_compressions_over_training(param_dict, epochs_idx,
+                                               n_batches)]
+        
+    return pd.concat(dfs, ignore_index=True)
 
 # def plots_df(df, x, y, hue_key, new_fig_keys):
     # new_fig_vals = [pd.unique(df[key]) for key in new_fig_keys]
@@ -104,10 +116,11 @@ def get_compressions_over_training(param_dict,
             # key_str += '_' + key + str(val)
         # df_plot = df_comb
 
-def plots_df(data, x, y, hue_key, row=None, col=None):
-    fg = sbn.relplot(data=data, x=x, y=y, hue_key=hue_key, row=row, col=col,
-                kind='line')
-    fg.savefig('test.pdf')
+def plots_df(data, x, y, hue, style, row=None, col=None,
+             height=height_default, figname='fig.pdf'):
+    fg = sbn.relplot(data=data, x=x, y=y, hue=hue, style=style, row=row,
+                     col=col, kind='line', height=height)
+    fg.savefig(figname)
     # new_fig_vals = [pd.unique(df[key]) for key in new_fig_keys]
 
 
@@ -127,18 +140,18 @@ if __name__ == '__main__':
     # fn = get_compressions_over_training
     # sys.exit()
     fn = train.train
-    fn(exp.ps_resnet18_imagenet[0])
-    sys.exit()
+    # fn(exp.ps_resnet18_imagenet[0])
+    # sys.exit()
     # breakpoint()
     fn_par = joblib.delayed(fn)
     # fn(exp.ps_resnet18_mnist_rmsprop[0])
-    ps_set1 = exp.ps_resnet18_mnist_rmsprop + exp.ps_resnet18_mnist_sgd
+    ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
     ps_set2 = exp.ps_resnet18_cifar10_rmsprop 
     ps_set3 = exp.ps_resnet18_cifar10_sgd
     # ps_set1 = exp.ps_resnet18_mnist_sgd
     # ps_set2 = exp.ps_resnet18_cifar10_sgd
-    # ps_all = ps_set1 + ps_set2 + ps_set3
-    ps_all = ps_set1
+    ps_all = ps_set1 + ps_set2 + ps_set3
+    # ps_all = ps_set1
     ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
     # for run_num in range(1, 13):
         # print('================================')
@@ -154,22 +167,33 @@ if __name__ == '__main__':
     # for k1, ps in enumerate(ps_all[24:]):
         # fn(ps)
         # print(k1)
-    # fn(ps_all[24])
-    # fn(ps_all[run_num-1])
-    df = pd.DataFrame()
+    fn(ps_all[0])
+    sys.exit()
+    # df = pd.DataFrame()
     # for ps in ps_all[:20]:
         # df_new = get_compressions_over_training(ps)
         # df = pd.concat((df, df_new), ignore_index=True)
     # breakpoint()
     # for ps in ps_all[:len(ps_all)//2]:
-    for ps in ps_all:
-        # df_new = get_compressions_over_training_cached(ps, epochs_idx=[0, -1])
-        df_new = get_compressions_over_training(ps, epochs_idx=[0, -1])
-        df = pd.concat((df, df_new), ignore_index=True)
-    df1 = df[(df['dataset']=='torch/mnist') & (df['opt']=='momentum') & (df['weight_decay']==0)]
-    plot_keys = ['epoch', 'compression', 'mode', 'momentum', 'mse_loss']
-    df1 = df1[plot_keys]
-    breakpoint()
+    df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, -1])
+    # for ps in ps_chunk:
+    # for ps in ps_all:
+        # df_new = get_compressions_over_training(ps, epochs_idx=[0, -1])
+        # # df_new = get_compressions_over_training(ps, epochs_idx=[1, -1])
+        # df = pd.concat((df, df_new), ignore_index=True)
+    # for ps in ps_all:
+        # df_new = get_compressions_over_training(ps)
+    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
+                 'weight_decay']
+    dfn = df[plot_keys]
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
+    df1 = dfn[filt]
+    plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
+             col='momentum', figname='sgd.pdf')
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
+    df1 = dfn[filt]
+    plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
+             figname='rmsprop.pdf')
     # df =
     # breakpoint()
     

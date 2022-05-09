@@ -46,13 +46,15 @@ ps_sgd = dict(
     lr=(0.0184,),
     mse_loss=(False, True),
     momentum=(0, .4, .9),
-    weight_decay=(0, 1e-4, 5e-4, 1e-3),
+    # weight_decay=(0, 1e-4, 5e-4, 1e-3),
+    weight_decay=(0, 1e-4, 5e-4, 1e-3, 1e-2),
 )
 ps_sgd_list = product_dict(ps_sgd)
 ps_rmsprop = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
     mse_loss=(False, True),
+    weight_decay=(0, 1e-4, 5e-4, 1e-3, 1e-2),
 )
 ps_rmsprop_list = product_dict(ps_rmsprop)
 
@@ -73,11 +75,11 @@ ps_resnet18_cifar10_rmsprop = [
     dict(ps_resnet18_cifar10, **d) for d in ps_rmsprop_list
 ]
 
-ps_resnet18_imagenet = dict(ps_imagenet, model='resnet18')
-ps_resnet18_imagenet_sgd = [
-    dict(ps_resnet18_imagenet, **d) for d in ps_sgd_list
+ps_resnet152_imagenet = dict(ps_imagenet, model='resnet152')
+ps_resnet152_imagenet_sgd = [
+    dict(ps_resnet152_imagenet, **d) for d in ps_sgd_list
 ]
-ps_resnet18_imagenet_rmsprop = [
-    dict(ps_resnet18_imagenet, **d) for d in ps_rmsprop_list
+ps_resnet152_imagenet_rmsprop = [
+    dict(ps_resnet152_imagenet, **d) for d in ps_rmsprop_list
 ]
 
