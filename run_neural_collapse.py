@@ -136,110 +136,35 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 if __name__ == '__main__':
-    # get_compressions_over_training(exp.ps_resnet18_mnist_sgd)
-    # fn = get_compressions_over_training
-    # sys.exit()
     fn = train.train
-    # fn(exp.ps_resnet18_imagenet[0])
-    # sys.exit()
-    # breakpoint()
     fn_par = joblib.delayed(fn)
-    # fn(exp.ps_resnet18_mnist_rmsprop[0])
     ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
     ps_set2 = exp.ps_resnet18_cifar10_rmsprop 
     ps_set3 = exp.ps_resnet18_cifar10_sgd
-    # ps_set1 = exp.ps_resnet18_mnist_sgd
-    # ps_set2 = exp.ps_resnet18_cifar10_sgd
     ps_all = ps_set1 + ps_set2 + ps_set3
-    # ps_all = ps_set1
     ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
-    # for run_num in range(1, 13):
-        # print('================================')
-        # print('================================')
-        # print(run_num)
-        # print('================================')
-        # print('================================')
     ps_chunk = ps_chunks[run_num-1]
     print(f"Running chunk {run_num} / {len(ps_chunks)}")
     print(f"This chunk has size {len(ps_chunk)}")
-    # [fn(ps_chunk[k1]) for k1 in range(len(ps_chunk))]
-    # fn(ps_all[-2])
-    # for k1, ps in enumerate(ps_all[24:]):
-        # fn(ps)
-        # print(k1)
-    fn(ps_all[0])
-    sys.exit()
-    # df = pd.DataFrame()
-    # for ps in ps_all[:20]:
-        # df_new = get_compressions_over_training(ps)
-        # df = pd.concat((df, df_new), ignore_index=True)
-    # breakpoint()
-    # for ps in ps_all[:len(ps_all)//2]:
-    df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, -1])
-    # for ps in ps_chunk:
-    # for ps in ps_all:
-        # df_new = get_compressions_over_training(ps, epochs_idx=[0, -1])
-        # # df_new = get_compressions_over_training(ps, epochs_idx=[1, -1])
-        # df = pd.concat((df, df_new), ignore_index=True)
-    # for ps in ps_all:
-        # df_new = get_compressions_over_training(ps)
+    df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, 5, 10, 20 -1])
     plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
                  'weight_decay']
     dfn = df[plot_keys]
     filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
     df1 = dfn[filt]
     plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
-             col='momentum', figname='sgd.pdf')
+             col='momentum', figname='mnist_sgd.png')
     filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
     df1 = dfn[filt]
     plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
-             figname='rmsprop.pdf')
-    # df =
-    # breakpoint()
-    
+             figname='mnist_rmsprop.png')
 
-    # processes = []
-    # processes += [Process(target=fn, args=(ps,)) for ps in ps_set1]
-    # + exp.ps_resnet18_cifar10_sgd + \
-                # exp.ps_resnet18_cifar10_rmsprop
-    # if n_jobs == 1:
-        # for proc in processes:
-            # proc.run()
-    # else:
-        # chunked_processes = list(chunks(processes, n_jobs))
-        # for i0, process_chunk in enumerate(chunked_processes):
-            # print(f"Starting batch {i0+1} of {len(chunked_processes)} batches")
-            # for process in process_chunk:
-                # # time.sleep(.5)
-                # process.start()
-            # [process.join() for process in process_chunk]
-    # ps_all = ps_set2
-    # if n_jobs > 1:
-        # joblib.Parallel(n_jobs=n_jobs, backend='loky')(fn_par(ps) for ps in ps_all)
-    # else:
-        # dfs = []
-        # for ps in ps_alll:
-            # fn(ps)
-    # dfs = [fn(ps) for ps in exp.ps_resnet18_mnist_sgd]
-    # df = pd.concat(dfs)
-    # df1 = df[df['mse']==True].drop('mse')
-    # df2 = df[df['mse']==False].drop('mse')
-    # plots_df(df1, x='epoch', y='compression', hue_key='mode', row='momentum',
-             # col='decay')
-    # plots_df(df2, x='epoch', y='compression', hue_key='mode')
-    # dfs = joblib.Parallel(n_jobs=2)(fn_par(ps) for ps in exp.ps_resnet18_mnist_rmsprop)
-    # dfs = joblib.Parallel(n_jobs=2)(fn_par(ps) for ps in
-                                    # exp.ps_resnet18_cifar10_rmsprop)
-    # [fn(ps) for ps in ps_all]
-    # dfs = joblib.Parallel(n_jobs=4)(fn_par(ps) for ps in ps_all)
-    # get_compressions_over_training(exp.ps_resnet18_cifar_sgd)
+    filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='momentum')
+    df1 = dfn[filt]
+    plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
+             col='momentum', figname='cifar10_sgd.png')
+    filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='rmsprop')
+    df1 = dfn[filt]
+    plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
+             figname='cifar10_rmsprop.png')
 
-    # df = get_compressions_over_training(
-       # exp.ps_resnet18_mnist_sgd)
-    # breakpoint()
-
-
-
-
-# batch_size = loader_train.loader.batch_size
-# num_its = data_lim // batch_size
