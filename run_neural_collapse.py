@@ -31,7 +31,7 @@ figsize_default = (3,2.5)
 
 memory = joblib.Memory(location='.neural_collapse_cache',
                        verbose=40)
-memory.clear()
+# memory.clear()
 
 n_batches = 2
 n_jobs = 12
@@ -46,35 +46,47 @@ outdir = exp.core_params['output']
 
 
 @memory.cache
-def get_compressions_over_training_cached(param_dict, n_batches=n_batches,
-                                          epochs_idx=None):
-    return get_compressions_over_training(param_dict=param_dict,
-                                          n_batches=n_batches,
-                                          epochs_idx=epochs_idx)
+def get_compressions_cached(param_dict, epoch, n_batches=n_batches):
+    return get_compressions(param_dict=param_dict, epoch=epoch,
+                            n_batches=n_batches)
 
-def get_compressions_over_training(param_dict, n_batches=n_batches,
-                                   epochs_idx=None):
-    df = pd.DataFrame()
-    out = train.train(param_dict)
-    model, loader_train, loader_val, run_dir, pd_mom = out
-    epochs = np.array(load_utils.get_epochs(run_dir))
-    if epochs_idx is not None:
-        epochs = epochs[epochs_idx]
-    for k1, epoch in enumerate(epochs):
-        tic = time.time()
+def get_compressions(param_dict, epoch, n_batches=n_batches):
+        out = train.train(param_dict)
+        model, loader_train, loader_val, run_dir, pd_mom = out
         load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
         compression_train = utils.get_compression(model, loader_train, run_dir,
                                                   n_batches)
         compression_val = utils.get_compression(model, loader_val, run_dir,
                                                 n_batches)
+        return compression_train, compression_val
+
+@memory.cache
+def get_compressions_over_training_cached(param_dict, epochs_idx=None,
+                                          n_batches=n_batches):
+    return get_compressions_over_training(param_dict, epochs_idx=None,
+                                          n_batches=n_batches)
+
+def get_compressions_over_training(param_dict,
+                                   epochs_idx=None,
+                                   n_batches=n_batches,
+                                  ):
+    out = train.train(param_dict)
+    model, loader_train, loader_val, run_dir, pd_mom = out
+    df = pd.DataFrame()
+    epochs = np.array(load_utils.get_epochs(run_dir))
+    if epochs_idx is not None:
+        epochs = epochs[epochs_idx]
+    for k1, epoch in enumerate(epochs):
+        # compression_train, compression_val = get_compressions_cached(
+            # param_dict, epoch, n_batches)
+        compression_train, compression_val = get_compressions(
+            param_dict, epoch, n_batches)
         d = {'epoch': epoch, 'compression': compression_train, 'mode': 'train'}
         d = {**d, **pd_mom}
         df = pd.concat((df, pd.DataFrame(d, index=[0])), ignore_index=True)
         d = {'epoch': epoch, 'compression': compression_val, 'mode': 'val'}
         d = {**d, **pd_mom}
         df = pd.concat((df, pd.DataFrame(d, index=[0])), ignore_index=True)
-        toc = time.time()
-        print(k1+1, '/', len(epochs), toc-tic)
     df['mode'] = df['mode'].astype("category")
     df['epoch'] = df['epoch'].astype(int)
     return df
@@ -115,6 +127,9 @@ if __name__ == '__main__':
     # fn = get_compressions_over_training
     # sys.exit()
     fn = train.train
+    fn(exp.ps_resnet18_imagenet[0])
+    sys.exit()
+    # breakpoint()
     fn_par = joblib.delayed(fn)
     # fn(exp.ps_resnet18_mnist_rmsprop[0])
     ps_set1 = exp.ps_resnet18_mnist_rmsprop + exp.ps_resnet18_mnist_sgd
@@ -122,7 +137,8 @@ if __name__ == '__main__':
     ps_set3 = exp.ps_resnet18_cifar10_sgd
     # ps_set1 = exp.ps_resnet18_mnist_sgd
     # ps_set2 = exp.ps_resnet18_cifar10_sgd
-    ps_all = ps_set1 + ps_set2 + ps_set3
+    # ps_all = ps_set1 + ps_set2 + ps_set3
+    ps_all = ps_set1
     ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
     # for run_num in range(1, 13):
         # print('================================')
@@ -135,20 +151,25 @@ if __name__ == '__main__':
     print(f"This chunk has size {len(ps_chunk)}")
     # [fn(ps_chunk[k1]) for k1 in range(len(ps_chunk))]
     # fn(ps_all[-2])
-    # for k1, ps in enumerate(ps_all):
+    # for k1, ps in enumerate(ps_all[24:]):
+        # fn(ps)
         # print(k1)
-    fn(ps_all[22])
+    # fn(ps_all[24])
     # fn(ps_all[run_num-1])
-    # df = pd.DataFrame()
-    # for ps in ps_all:
-        # df_new = get_compressions_over_training_cached(ps)
+    df = pd.DataFrame()
+    # for ps in ps_all[:20]:
+        # df_new = get_compressions_over_training(ps)
         # df = pd.concat((df, df_new), ignore_index=True)
-    # for ps in ps_all:
-        # df_new = get_compressions_over_training_cached(ps,
-                                                       # epochs_idx=[0, -1])
-        # df = pd.concat((df, df_new), ignore_index=True)
-    # df1 = df[df['data_set']=='mnist'][df['opt']=='sgd'][df['weight_decay']==0]
-    # plot_keys = ['epoch', 'compression', 'mode', 'momentum', ]
+    # breakpoint()
+    # for ps in ps_all[:len(ps_all)//2]:
+    for ps in ps_all:
+        # df_new = get_compressions_over_training_cached(ps, epochs_idx=[0, -1])
+        df_new = get_compressions_over_training(ps, epochs_idx=[0, -1])
+        df = pd.concat((df, df_new), ignore_index=True)
+    df1 = df[(df['dataset']=='torch/mnist') & (df['opt']=='momentum') & (df['weight_decay']==0)]
+    plot_keys = ['epoch', 'compression', 'mode', 'momentum', 'mse_loss']
+    df1 = df1[plot_keys]
+    breakpoint()
     # df =
     # breakpoint()
     

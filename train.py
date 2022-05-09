@@ -343,6 +343,8 @@ def main():
 
 
 def train(args_set_dict):
+    if (_logger.hasHandlers()):
+        _logger.handlers.clear()
     setup_default_logging()
     args, args_text = _parse_args()
     for key in args_set_dict:

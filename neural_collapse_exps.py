@@ -39,7 +39,7 @@ ps_cifar10 = dict(core_params, data_dir='data', dataset='torch/cifar10',
 
 ps_imagenet = dict(core_params,
     data_dir='/n/pehlevan_lab/Everyone/imagenet/ILSVRC/Data/CLS-LOC',
-    dataset='imagenet', img_size=32)
+    dataset='imagenet')
 
 ps_sgd = dict(
     opt=('momentum',),

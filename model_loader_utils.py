@@ -55,7 +55,8 @@ def load_model(model, filename, optimizer=None, learning_scheduler=None):
         model_state_info = torch.load(filename)
     except FileNotFoundError:
         return -1
-    model.load_state_dict(model_state_info['model_state_dict'])
+    model.load_state_dict(model_state_info['state_dict'])
+    breakpoint()
     if optimizer is not None:
         optimizer.load_state_dict(model_state_info['optimizer_state_dict'])
     if learning_scheduler is not None:
@@ -152,6 +153,7 @@ def load_model_from_epoch_and_dir(model, out_dir, epoch_num, save_num=0, optimiz
     if epoch_num == -1:
         epoch_num = get_max_epoch(out_dir)
     filename = out_dir/checkpnt_str
+    breakpoint()
     return load_model(model, filename, optimizer, learning_scheduler)
 
 def load_model_mom(model, epoch, arg_dict, table_path, compare_exclude=[], optimizer=None, learning_scheduler=None):
