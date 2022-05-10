@@ -331,7 +331,9 @@ def _parse_args():
 
     # The main arg parser parses the rest of the args, the usual
     # defaults will have been overridden if config file specified.
-    args = parser.parse_args(remaining)
+    # args = parser.parse_args(remaining)
+    # args = parser.parse_known_args(remaining)
+    args = parser.parse_known_args()[0]
 
     # Cache the args as a text string to save them in the output dir later
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)

@@ -18,6 +18,17 @@ from torch.multiprocessing import Process, Lock
 
 # %% 
 
+parser_outer = argparse.ArgumentParser(description='outer',
+                                       add_help=False)
+parser_outer.add_argument('--run-num', type=int, default=None, metavar='N',
+                    help='Run number.')
+args_outer, remaining_outer = parser_outer.parse_known_args()
+run_num = args_outer.run_num
+# run_num=1
+# breakpoint()
+
+# %% 
+
 sbn.set_palette('colorblind')
 plt.rcParams['font.size'] = 6
 plt.rcParams['font.size'] = 6
@@ -142,29 +153,30 @@ if __name__ == '__main__':
     ps_set2 = exp.ps_resnet18_cifar10_rmsprop 
     ps_set3 = exp.ps_resnet18_cifar10_sgd
     ps_all = ps_set1 + ps_set2 + ps_set3
-    ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
-    ps_chunk = ps_chunks[run_num-1]
-    print(f"Running chunk {run_num} / {len(ps_chunks)}")
-    print(f"This chunk has size {len(ps_chunk)}")
-    df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, 5, 10, 20 -1])
-    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
-                 'weight_decay']
-    dfn = df[plot_keys]
-    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
-    df1 = dfn[filt]
-    plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
-             col='momentum', figname='mnist_sgd.png')
-    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
-    df1 = dfn[filt]
-    plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
-             figname='mnist_rmsprop.png')
+    print(len(ps_all))
+    sys.exit()
+    # ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
+    # ps_chunk = ps_chunks[run_num-1]
+    fn(ps_all[run_num-1])
+    # df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, 5, 10, 20 -1])
+    # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
+                 # 'weight_decay']
+    # dfn = df[plot_keys]
+    # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
+    # df1 = dfn[filt]
+    # plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
+             # col='momentum', figname='mnist_sgd.png')
+    # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
+    # df1 = dfn[filt]
+    # plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
+             # figname='mnist_rmsprop.png')
 
-    filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='momentum')
-    df1 = dfn[filt]
-    plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
-             col='momentum', figname='cifar10_sgd.png')
-    filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='rmsprop')
-    df1 = dfn[filt]
-    plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
-             figname='cifar10_rmsprop.png')
+    # filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='momentum')
+    # df1 = dfn[filt]
+    # plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
+             # col='momentum', figname='cifar10_sgd.png')
+    # filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='rmsprop')
+    # df1 = dfn[filt]
+    # plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
+             # figname='cifar10_rmsprop.png')
 
