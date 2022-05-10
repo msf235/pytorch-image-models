@@ -48,7 +48,7 @@ memory = joblib.Memory(location='.neural_collapse_cache',
 n_batches = 2
 # n_jobs = 12
 n_jobs = 4
-run_num = 3
+# run_num = 3
 # parser = argparse.ArgumentParser()
 # parser.add_argument('n_jobs', type=int)
 # parser.add_argument('run_num', type=int)
@@ -153,11 +153,12 @@ if __name__ == '__main__':
     ps_set2 = exp.ps_resnet18_cifar10_rmsprop 
     ps_set3 = exp.ps_resnet18_cifar10_sgd
     ps_all = ps_set1 + ps_set2 + ps_set3
-    print(len(ps_all))
-    sys.exit()
     # ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
-    # ps_chunk = ps_chunks[run_num-1]
+    print(run_num)
     fn(ps_all[run_num-1])
+    # for ps in ps_all:
+        # fn(ps)
+    # fn(ps_all[run_num-1])
     # df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, 5, 10, 20 -1])
     # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
                  # 'weight_decay']
