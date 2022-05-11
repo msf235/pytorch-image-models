@@ -243,13 +243,13 @@ if __name__ == '__main__':
         # df = get_compressions_over_layers(ps, [0, -1])
         # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # for ps in ps_set2:
-    for ps in ps_all:
-        df = get_compressions_over_layers(ps, [0, -1])
-        get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
+    # for ps in ps_all:
+        # df = get_compressions_over_layers(ps, [0, -1])
+        # get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # print(run_num)
-    # ps = ps_all[run_num-1]
-    # df = get_compressions_over_layers(ps, [0, -1])
-    # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
+    ps = ps_all[run_num-1]
+    df = get_compressions_over_layers(ps, [0, -1])
+    df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # fn(ps_all[run_num-1])
     # df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, 5, 10, 20 -1])
     # df = get_compressions_over_training(ps_all[0], epochs_idx=[0, 5, 10, 20 -1])
