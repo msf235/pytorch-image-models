@@ -46,17 +46,29 @@ ps_sgd = dict(
     lr=(0.0184,),
     mse_loss=(False, True),
     momentum=(0, .4, .9),
-    # weight_decay=(0, 1e-4, 5e-4, 1e-3),
-    weight_decay=(0, 1e-4, 5e-4, 1e-3, 1e-2),
+    weight_decay=(0, 5e-4, 1e-3, 1e-2),
 )
-ps_sgd_list = product_dict(ps_sgd)
+ps_sgd2 = dict(
+    opt=('momentum',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    momentum=(0, .4, .9),
+    drop=(.2, .4),
+)
+ps_sgd_list = product_dict(ps_sgd) + product_dict(ps_sgd2)
 ps_rmsprop = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
     mse_loss=(False, True),
-    weight_decay=(0, 1e-4, 5e-4, 1e-3, 1e-2),
+    weight_decay=(0, 5e-4, 1e-3, 1e-2),
 )
-ps_rmsprop_list = product_dict(ps_rmsprop)
+ps_rmsprop2 = dict(
+    opt=('rmsprop',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    drop=(.2, .4),
+)
+ps_rmsprop_list = product_dict(ps_rmsprop) + product_dict(ps_rmsprop2)
 
 ps_resnet18_mnist = dict(ps_mnist, model='resnet18')
 ps_resnet18_mnist_sgd = [
