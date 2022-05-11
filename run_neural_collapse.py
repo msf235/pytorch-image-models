@@ -31,7 +31,7 @@ run_num = args_outer.run_num
 
 mem_cache = Path('.neural_collapse_cache')
 memory = mom.Memory(location=mem_cache)
-memory.clear()
+# memory.clear()
 
 
 # %% 
@@ -171,7 +171,7 @@ def get_compressions_over_layers(param_dict, epochs_idx,
         epochs = epochs[epochs_idx]
     ds = []
     for k1, epoch in enumerate(epochs):
-        out = get_compressions_cached(param_dict, epoch, layer_ids, n_batches,
+        out = get_compressions(param_dict, epoch, layer_ids, n_batches,
                                       train_out)
         compression_train, compression_val, layer_ids_k1, layer_names_k1 = out
         filt = ~torch.isnan(compression_train)
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
     # ps_set2 = exp.ps_resnet18_cifar10_sgd
     # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
-    # ps_all = ps_set1 + ps_set2
+    ps_all = ps_set1 + ps_set2
     # ps_all = ps_set2
     # ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
     # run_num=1
@@ -242,8 +242,9 @@ if __name__ == '__main__':
         # fn(ps)
         # df = get_compressions_over_layers(ps, [0, -1])
         # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
-    for ps in ps_set2:
-        # df = get_compressions_over_layers(ps, [0, -1])
+    # for ps in ps_set2:
+    for ps in ps_all:
+        df = get_compressions_over_layers(ps, [0, -1])
         get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # print(run_num)
     # ps = ps_all[run_num-1]
