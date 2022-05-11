@@ -1,6 +1,7 @@
 import time
 import math
 import sys
+from pathlib import Path
 import argparse
 import itertools
 import numpy as np
@@ -17,6 +18,8 @@ import joblib
 from torch.multiprocessing import Process, Lock
 import torchvision.models.feature_extraction as fe
 
+import model_output_manager_hash as mom
+
 # %% 
 
 parser_outer = argparse.ArgumentParser(description='outer',
@@ -25,11 +28,10 @@ parser_outer.add_argument('--run-num', type=int, default=None, metavar='N',
                     help='Run number.')
 args_outer, remaining_outer = parser_outer.parse_known_args()
 run_num = args_outer.run_num
-# run_num=1
-# breakpoint()
 
-memory = joblib.Memory(location='.neural_collapse_cache')
-# memory.clear()
+mem_cache = Path('.neural_collapse_cache')
+memory = mom.Memory(location=mem_cache)
+memory.clear()
 
 
 # %% 
@@ -60,17 +62,18 @@ n_jobs = 4
 outdir = exp.core_params['output']
 
 
-@memory.cache(ignore=['train_out'])
-def get_compressions_cached(param_dict, epoch, layer_ids, n_batches=n_batches,
-                            train_out=None):
-    return get_compressions(param_dict=param_dict, epoch=epoch,
-                            layer_ids=layer_ids, n_batches=n_batches,
-                            train_out=train_out)
+# @memory.cache(ignore=['train_out'])
+# def get_compressions_cached(param_dict, epoch, layer_ids, n_batches=n_batches,
+                            # train_out=None):
+    # return get_compressions(param_dict=param_dict, epoch=epoch,
+                            # layer_ids=layer_ids, n_batches=n_batches,
+                            # train_out=train_out)
 
+@memory.cache(ignore=['train_out'])
 def get_compressions(param_dict, epoch, layer_ids, n_batches=n_batches,
                      train_out=None):
-        if train_out is None:
-            train_out = train.train(param_dict)
+        # mem_name = 'get_compressions'
+        # run_dir = mem_cach/mom.get_run_hash(param_dict)
         model, loader_train, loader_val, run_dir, pd_mom = train_out
         model.eval()
         nodes, __ = fe.get_graph_node_names(model)
@@ -121,7 +124,9 @@ def get_compressions_over_training(param_dict, epochs_idx=None, layer_id=-1,
         epochs = epochs[epochs_idx]
     ds = []
     for k1, epoch in enumerate(epochs):
-        out = get_compressions_cached(
+        # out = get_compressions_cached(
+            # param_dict, epoch, [layer_id], n_batches, train_out)
+        out = get_compressions(
             param_dict, epoch, [layer_id], n_batches, train_out)
         compression_train, compression_val, layer_id_k1, name_k1 = out
         layer_id_k1 = layer_id_k1[0]
@@ -219,9 +224,11 @@ if __name__ == '__main__':
     fn = train.train
     fn_par = joblib.delayed(fn)
     ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
-    ps_set2 = exp.ps_resnet18_cifar10_rmsprop 
-    ps_set3 = exp.ps_resnet18_cifar10_sgd
-    ps_all = ps_set1 + ps_set2 + ps_set3
+    ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
+    # ps_set2 = exp.ps_resnet18_cifar10_sgd
+    # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
+    # ps_all = ps_set1 + ps_set2
+    # ps_all = ps_set2
     # ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
     # run_num=1
     # print(run_num)
@@ -229,9 +236,15 @@ if __name__ == '__main__':
     # fn(ps)
     # df = get_compressions_over_layers(ps, [0, -1])
     # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
+    # for ps in ps_set2:
+        # fn(ps)
     # for ps in ps_all:
+        # fn(ps)
         # df = get_compressions_over_layers(ps, [0, -1])
         # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
+    for ps in ps_set2:
+        # df = get_compressions_over_layers(ps, [0, -1])
+        get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # print(run_num)
     # ps = ps_all[run_num-1]
     # df = get_compressions_over_layers(ps, [0, -1])

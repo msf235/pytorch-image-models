@@ -252,7 +252,18 @@ def create_optimizer_v2(
         optimizer = optim.SGD(parameters, momentum=momentum, nesterov=False, **opt_args)
     elif opt_lower == 'sgdp':
         optimizer = SGDP(parameters, momentum=momentum, nesterov=True, **opt_args)
-
+    
+    # Noisy and combinations
+    elif opt_lower == 'noisy_sgd':
+        opt_args.pop('eps', None)
+        # sgd_noise : float = 0,
+        optimizer = optim.NoisySGD(parameters, momentum=momentum,
+                                   nesterov=False, **opt_args)
+    elif opt_lower == 'sgd_rmsprop_comb':
+        # sgd_rmsprop_comb : float = 1,
+        optimizer = optim.SGD_RMSprop_Comb(parameters, alpha=0.9,
+                                           momentum=momentum, **opt_args)
+    
     # adaptive
     elif opt_lower == 'adam':
         optimizer = optim.Adam(parameters, **opt_args) 

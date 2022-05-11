@@ -527,7 +527,7 @@ def train(args_set_dict):
     output_dir = get_outdir(args.output if args.output
                             else './output/train', exp_name)
     run_exists = mom.run_exists(args_mom, output_dir)
-    run_id = mom.get_run_hash(args_mom, output_dir)
+    run_id = mom.get_run_hash(args_mom)
     run_dir = Path(output_dir) / f"run_{run_id}/"
     run_dir.mkdir(exist_ok=True)
 

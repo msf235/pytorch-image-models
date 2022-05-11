@@ -56,6 +56,7 @@ ps_sgd2 = dict(
     drop=(.2, .4),
 )
 ps_sgd_list = product_dict(ps_sgd) + product_dict(ps_sgd2)
+# ps_sgd_list = product_dict(ps_sgd2)
 ps_rmsprop = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
@@ -69,6 +70,23 @@ ps_rmsprop2 = dict(
     drop=(.2, .4),
 )
 ps_rmsprop_list = product_dict(ps_rmsprop) + product_dict(ps_rmsprop2)
+# ps_rmsprop_list = product_dict(ps_rmsprop2)
+
+ps_noisy_sgd = dict(
+    opt=('noisy_sgd',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    grad_noise=(.1, .4),
+)
+ps_noisy_sgd_list = product_dict(ps_noisy_sgd)
+
+ps_sgd_rmsprop_comb = dict(
+    opt=('sgd_rmsprop_comb',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    sgd_rmsprop_prop=(.25, .5, .75),
+)
+ps_sgd_rmsprop_comb_list = product_dict(ps_sgd_rmsprop_comb)
 
 ps_resnet18_mnist = dict(ps_mnist, model='resnet18')
 ps_resnet18_mnist_sgd = [
@@ -85,6 +103,12 @@ ps_resnet18_cifar10_sgd = [
 ]
 ps_resnet18_cifar10_rmsprop = [
     dict(ps_resnet18_cifar10, **d) for d in ps_rmsprop_list
+]
+ps_resnet18_cifar10_noisy_sgd = [
+    dict(ps_resnet18_cifar10, **d) for d in ps_noisy_sgd_list
+]
+ps_resnet18_cifar10_sgd_rmsprop_comb = [
+    dict(ps_resnet18_cifar10, **d) for d in ps_sgd_rmsprop_comb_list
 ]
 
 ps_resnet152_imagenet = dict(ps_imagenet, model='resnet152')
