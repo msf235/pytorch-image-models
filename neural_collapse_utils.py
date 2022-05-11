@@ -64,35 +64,55 @@ def within_over_across_class_mean_dist(X, y, breakv=False):
     d_within = torch.nanmean(torch.diag(ds))
     d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
 
-    return d_within, d_across
+    return d_within.item(), d_across.item()
 
-def get_compression(model, loader, run_dir, n_batches):
+def get_compressions(feat_extractor, loader, run_dir, n_batches):
     data_size = len(loader)
     feat_col = []
     labels_col = []
     d_within = []
     d_across = []
-    for k1, (inpdata, labels) in enumerate(loader):
-        features = model.forward_features(inpdata).data.squeeze()
-        feat_col += [features]
-        labels_col += [labels]
+    inpdata = []
+    labels = []
+    out_inputs = []
+    within_inputs = []
+    across_inputs = []
+    print("Reminder to check layer orderings.")
+    for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+        inpdata += [inpdata_batch]
+        labels += [labels_batch]
         if (k1 + 1) % n_batches == 0:
-            feat_col = torch.cat(feat_col, dim=0)
-            labels_col = torch.cat(labels_col, dim=0)
-            if k1 >= len(loader)-1:
-                out = within_over_across_class_mean_dist(feat_col, labels_col,
-                                                         breakv=True)
-            out = within_over_across_class_mean_dist(feat_col, labels_col)
-            d_within += [out[0].item()]
-            d_across += [out[1].item()]
-            feat_col = []
-            labels_col = []
+            inpdata = torch.cat(inpdata, dim=0)
+            labels = torch.cat(labels, dim=0)
+            # features = feat_extractor(inpdata)
+            featt = feat_extractor(inpdata)
+            features = featt.values()
+            features = [feat.data.squeeze() for feat in features]
+            breakv = k1 >= len(loader)-1
+            out_layers = [within_over_across_class_mean_dist(feat, labels,
+                                                             breakv=breakv) for
+                          feat in features]
+            within_layers = [o[0] for o in out_layers]
+            across_layers = [o[1] for o in out_layers]
+            # lr = range(len(within_layers))
+            # zt = [h for h in within_layers if h != 0]
+            # within_layers = [within_layers[k] for k in lr if zt[k]]
+            # across_layers = [across_layers[k] for k in lr if zt[k]]
+            # within_layers = [h for h in within_layers if h != 0]
+            # zt = [w!=0 for w in within_layers]
+            # within_layers = []
+            
+            within_inputs += [within_layers]
+            across_inputs += [across_layers]
+            inpdata = []
+            labels = []
+    d_within = zip(*within_inputs)
+    d_across = zip(*across_inputs)
 
-    d_within = sum(d_within) / len(d_within)
-    d_across = sum(d_across) / len(d_across)
-    compression = d_within / d_across
+    d_within_avgs = torch.tensor([sum(d) / len(d) for d in d_within])
+    d_across_avgs = torch.tensor([sum(d) / len(d) for d in d_across])
+    compression = d_within_avgs / d_across_avgs
     return compression
-    # return (d_within / d_across).item()
 
 # %% 
 # if __name__ == '__main__':

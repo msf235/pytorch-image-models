@@ -531,17 +531,6 @@ def train(args_set_dict):
     run_dir = Path(output_dir) / f"run_{run_id}/"
     run_dir.mkdir(exist_ok=True)
 
-    if args.checkpoint_first is not None:
-        checkpoint_offset = args.checkpoint_first
-    else:
-        checkpoint_offset = 0
-    # ============= Training loop =================
-    if args.checkpoint_every is not None:
-        state_dict = get_state_dict(model)
-        savedict = dict(epoch=0, arch=type(model).__name__.lower(),
-                        state_dict=state_dict, optimizer=optimizer.state_dict(),
-                        version=2, args=args)
-        torch.save(savedict, run_dir/f'checkpoint-epoch-0.pth')
     if not args.resume:
         print()
         print("Training from scratch and saving output to:")
@@ -730,6 +719,17 @@ def train(args_set_dict):
         with open(os.path.join(run_dir, 'args.yaml'), 'w') as f:
             f.write(args_text)
 
+    # ============= Training loop =================
+    if args.checkpoint_first is not None:
+        checkpoint_offset = args.checkpoint_first
+    else:
+        checkpoint_offset = 0
+    if args.checkpoint_every is not None and start_epoch==0:
+        state_dict = get_state_dict(model)
+        savedict = dict(epoch=0, arch=type(model).__name__.lower(),
+                        state_dict=state_dict, optimizer=optimizer.state_dict(),
+                        version=2, args=args)
+        torch.save(savedict, run_dir/f'checkpoint-epoch-0.pth')
     try:
         for epoch in range(start_epoch, num_epochs):
             if args.distributed and hasattr(loader_train.sampler, 'set_epoch'):
