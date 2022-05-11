@@ -29,7 +29,7 @@ run_num = args_outer.run_num
 # breakpoint()
 
 memory = joblib.Memory(location='.neural_collapse_cache')
-memory.clear()
+# memory.clear()
 
 
 # %% 
@@ -223,13 +223,11 @@ if __name__ == '__main__':
     ps_set3 = exp.ps_resnet18_cifar10_sgd
     ps_all = ps_set1 + ps_set2 + ps_set3
     # ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
-    run_num=1
     print(run_num)
     ps = ps_all[run_num-1]
     # fn(ps)
     df = get_compressions_over_layers(ps, [0, -1])
     df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
-    breakpoint()
     # fn(ps_all[run_num-1])
     # df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, 5, 10, 20 -1])
     # df = get_compressions_over_training(ps_all[0], epochs_idx=[0, 5, 10, 20 -1])
