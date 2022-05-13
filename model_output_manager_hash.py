@@ -117,7 +117,11 @@ class Memory:
             arg_dict = {key: value for key, value in sorted(arg_dict.items())}
             if ignore is not None:
                 for key in ignore:
-                    del arg_dict[key]
+                    keysp = key.split('.')
+                    if len(keysp) == 1:
+                        del arg_dict[key]
+                    else:
+                        del arg_dict[keysp[0]][keysp[1]]
             for key, val in arg_dict.items():
                 if isinstance(val, dict):
                     arg_dict[key] = {key: value for key, value in sorted(arg_dict[key].items())}
