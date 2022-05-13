@@ -597,7 +597,8 @@ class ResNet(nn.Module):
             self, block, layers, num_classes=1000, in_chans=3, output_stride=32, global_pool='avg',
             cardinality=1, base_width=64, stem_width=64, stem_type='', replace_stem_pool=False, block_reduce_first=1,
             down_kernel_size=1, avg_down=False, act_layer=nn.ReLU, norm_layer=nn.BatchNorm2d, aa_layer=None,
-            drop_rate=0.0, drop_path_rate=0., drop_block_rate=0., zero_init_last=True, block_args=None):
+            drop_rate=0.0, drop_path_rate=0., drop_block_rate=0.,
+            inj_noise_std=0.0, zero_init_last=True, block_args=None):
         super(ResNet, self).__init__()
         block_args = block_args or dict()
         assert output_stride in (8, 16, 32)

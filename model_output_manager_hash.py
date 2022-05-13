@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import os
 import pandas as pd
 import pickle as pkl
 import functools
@@ -63,6 +64,12 @@ def get_run_hash(param_dict):
     hashnum = pd.util.hash_pandas_object(df, index=False)[0]
     return hashnum
 
+def param_converter(output_dir, filename_preface, param_dict_old, param_dict_new):
+    old_hash = get_run_hash(param_dict_old)
+    old_dir = Path(output_dir) / (filename_preface+str(old_hash))
+    new_hash = get_run_hash(param_dict_new)
+    new_dir = Path(output_dir) / (filename_preface+str(new_hash))
+    os.rename(old_dir.resolve(), new_dir.resolve())
 
 class Memory:
     def __init__(self, location):

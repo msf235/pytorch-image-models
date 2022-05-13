@@ -18,6 +18,7 @@ import argparse
 import time
 import yaml
 import os
+import sys
 import glob
 import logging
 from collections import OrderedDict
@@ -258,6 +259,8 @@ parser.add_argument('--drop-path', type=float, default=None, metavar='PCT',
                     help='Drop path rate (default: None)')
 parser.add_argument('--drop-block', type=float, default=None, metavar='PCT',
                     help='Drop block rate (default: None)')
+parser.add_argument('--inj_noise_std', type=float, default=0.0, metavar='PCT',
+                    help='Injected noise standard deviation (default: 0.0)')
 
 # Batch norm parameters (only works with gen_efficientnet based models currently)
 parser.add_argument('--bn-momentum', type=float, default=None,
@@ -365,11 +368,16 @@ def train(args_set_dict):
     del args_mom['workers']
     del args_mom['output']
     del args_mom['experiment']
+    args_mom_old = args_mom.copy()
+    del args_mom_old['inj_noise_std']
     # args_mom['torchscript'] = False
 
     for key, val in args_mom.items():
         if hasattr(val, '__len__'):
             args_mom[key] = str(val)
+    for key, val in args_mom_old.items():
+        if hasattr(val, '__len__'):
+            args_mom_old[key] = str(val)
     
     if args.log_wandb:
         if has_wandb:
@@ -438,6 +446,7 @@ def train(args_set_dict):
         drop_connect_rate=args.drop_connect,  # DEPRECATED, use drop_path
         drop_path_rate=args.drop_path,
         drop_block_rate=args.drop_block,
+        inj_noise_std=args.inj_noise_std,
         global_pool=args.gp,
         bn_momentum=args.bn_momentum,
         bn_eps=args.bn_eps,
@@ -525,6 +534,10 @@ def train(args_set_dict):
             # str(data_config['input_size'][-1])
         # ])
         exp_name = ''
+    output_dir = get_outdir(args.output if args.output
+                            else './output/train', exp_name)
+    mom.param_converter(output_dir, 'run_', args_mom_old, args_mom)
+    sys.exit()
     output_dir = get_outdir(args.output if args.output
                             else './output/train', exp_name)
     run_exists = mom.run_exists(args_mom, output_dir)
