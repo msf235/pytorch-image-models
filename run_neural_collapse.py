@@ -50,7 +50,8 @@ plt.rcParams['axes.titlesize'] = 8
 height_default = 2
 
 
-n_batches = 2
+# n_batches = 2
+n_batches = 1
 # n_jobs = 12
 n_jobs = 4
 # run_num = 3
@@ -72,7 +73,7 @@ outdir = exp.core_params['output']
 @memory.cache(ignore=['train_out', 'param_dict.output', 'param_dict.workers',
                       'param_dict.resume', 'param_dict.dataset_download'])
 def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
-                        n_samples=None, mode='val', train_out=None):
+                        n_samples=None, lin_class_its=50, mode='val', train_out=None):
     if mode != 'val' or n_samples is not None:
         raise AttributeError('Not implemented yet')
     model, loader_train, loader_val, run_dir, pd_mom = train_out
@@ -103,7 +104,8 @@ def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
     # compression_train = utils.get_compressions_projected(
         # feat_extractor, loader_train, run_dir, n_batches)
     dists = utils.get_dists_projected(
-        feat_extractor, loader_val, run_dir, n_batches)
+        feat_extractor, loader_val, run_dir, n_batches,
+        lin_class_its)
     # (d_within_avgs, d_across_avgs, d_within_aligned_avgs,
                  # d_across_aligned_avgs, d_within_aligned_ratio_avgs,
                  # d_across_aligned_ratio_avgs) = out
@@ -157,7 +159,7 @@ def get_compressions_over_training(param_dict, epochs_idx=None, layer_id=-1,
     for k1, epoch in enumerate(epochs):
         if projection is not None:
             out = get_dists_projected(param_dict, epoch, [layer_id],
-                                      n_batches, n_samples, mode, train_out)
+                                      n_batches, n_samples, 50, mode, train_out)
             dists, layer_id_k1, name_k1 = out
             compression = (dists[0] / dists[1]).item()
             d = {'epoch': epoch, 'compression': compression, 
@@ -208,7 +210,7 @@ def get_compressions_over_layers(param_dict, epochs_idx,
     for k1, epoch in enumerate(epochs):
         if projection is not None:
             out = get_dists_projected(param_dict, epoch, layer_ids,
-                                      n_batches, n_samples, mode, train_out)
+                                      n_batches, n_samples, 50, mode, train_out)
         else:
             out = get_compressions(param_dict, epoch, layer_ids, n_batches,
                                           train_out)

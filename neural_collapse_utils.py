@@ -159,7 +159,8 @@ def get_compressions(feat_extractor, loader, run_dir, n_batches):
     compression = d_within_avgs / d_across_avgs
     return compression
 
-def get_dists_projected(feat_extractor, loader, run_dir, n_batches):
+def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
+                        lin_class_its):
     data_size = len(loader)
     feat_col = []
     labels_col = []
@@ -202,7 +203,7 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches):
                     (torch.nanmean(torch.diag(ds))).item())
                 ds_across_layers.append(
                     (torch.sum(torch.triu(ds, 1))/((m-1)**2/2)).item())
-                classf = Classifier(max_iter=50, C=10)
+                classf = Classifier(max_iter=lin_class_its, C=10)
                 classf.fit(feat.numpy(), labels.numpy())
                 w = torch.tensor(classf.coef_, dtype=torch.float)
                 b = torch.tensor(classf.intercept_, dtype=torch.float)
