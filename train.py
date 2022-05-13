@@ -365,6 +365,7 @@ def train(args_set_dict):
     del args_mom['workers']
     del args_mom['output']
     del args_mom['experiment']
+    # args_mom['torchscript'] = False
 
     for key, val in args_mom.items():
         if hasattr(val, '__len__'):

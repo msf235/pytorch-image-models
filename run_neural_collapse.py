@@ -30,6 +30,7 @@ args_outer, remaining_outer = parser_outer.parse_known_args()
 run_num = args_outer.run_num
 
 mem_cache = Path('.neural_collapse_cache')
+# mem_cache = Path('.neural_collapse_cache_test')
 # mem_cache = Path('.neural_collapse_cache_old')
 memory = mom.Memory(location=mem_cache)
 # memory.clear()
@@ -77,7 +78,6 @@ def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
     if mode != 'val' or n_samples is not None:
         raise AttributeError('Not implemented yet')
     model, loader_train, loader_val, run_dir, pd_mom = train_out
-    model.eval()
     nodes, __ = fe.get_graph_node_names(model)
     load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
     model.eval()

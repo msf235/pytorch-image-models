@@ -1,4 +1,5 @@
 import timm
+import time
 from sklearn.svm import LinearSVC as Classifier
 from sklearn.exceptions import ConvergenceWarning
 import warnings
@@ -177,6 +178,7 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
     across_inputs = []
     print("Reminder to check layer orderings.")
     for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+        tic = time.time()
         print(k1, '/', len(loader), ' inputs')
         inpdata += [inpdata_batch]
         labels += [labels_batch]
@@ -245,6 +247,8 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
 
             inpdata = []
             labels = []
+            toc = time.time()
+            print('time elapsed: ', toc-tic)
     ds_within_tot = zip(*ds_within_tot)
     ds_across_tot = zip(*ds_across_tot)
     ds_within_aligned_tot = zip(*ds_within_aligned_tot)
