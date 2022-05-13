@@ -218,11 +218,11 @@ def get_compressions_over_layers(param_dict, epochs_idx,
         # compression_train, compression_val, layer_ids_k1, layer_names_k1 = out
         compression = dists[0] / dists[1]
         compression_aligned = dists[2] / dists[3]
-        filt = ~torch.isnan(compression_train)
+        filt = ~torch.isnan(compression)
         layer_names_k1 = [n for n, f in zip(layer_names_k1, filt) if f]
         layer_ids_k1 = [n for n, f in zip(layer_ids_k1, filt) if f]
-        compression_train = compression_train[filt].tolist()
-        compression_val = compression_val[filt].tolist()
+        compression = compression[filt].tolist()
+        compression_aligned = compression_aligned[filt].tolist()
         # compression_train, compression_val, layer_names = get_compressions(
             # param_dict, epoch, layer_ids, n_batches)
         for k1, layer_id in enumerate(layer_ids_k1):
