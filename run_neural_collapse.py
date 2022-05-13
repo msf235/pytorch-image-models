@@ -286,6 +286,7 @@ if __name__ == '__main__':
         # get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # print(run_num)
     # run_num=1
+    print('run_num:', run_num)
     ps = ps_all[run_num-1]
     # df = get_compressions_over_layers(ps, [0, -1])
     df = get_compressions_over_layers(ps, [0, -1], projection='s')
