@@ -209,7 +209,6 @@ def get_compressions_over_layers(param_dict, epochs_idx,
     ds = []
     for k1, epoch in enumerate(epochs):
         if projection is not None:
-            breakpoint()
             out = get_dists_projected(param_dict, epoch, layer_ids,
                                       n_batches, n_samples, 50, mode, train_out)
         else:

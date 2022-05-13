@@ -177,6 +177,7 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
     across_inputs = []
     print("Reminder to check layer orderings.")
     for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+        print(k1, '/', len(loader), ' inputs')
         inpdata += [inpdata_batch]
         labels += [labels_batch]
         if (k1 + 1) % n_batches == 0:
