@@ -5,6 +5,7 @@ import pickle as pkl
 import functools
 import inspect
 import hashlib
+import copy
 
 
 def hashfn(hashstr):
@@ -114,7 +115,8 @@ class Memory:
                 kwarg_names_unset_local.remove(kwarg)
             for kwarg in kwarg_names_unset_local: 
                 arg_dict[kwarg] = default_kwarg_vals[kwarg]
-            arg_dict = {key: value for key, value in sorted(arg_dict.items())}
+            arg_dict = copy.deepcopy({key: value for key, value in
+                                      sorted(arg_dict.items())})
             if ignore is not None:
                 for key in ignore:
                     keysp = key.split('.')
