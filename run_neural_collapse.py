@@ -29,7 +29,8 @@ parser_outer.add_argument('--run-num', type=int, default=None, metavar='N',
 args_outer, remaining_outer = parser_outer.parse_known_args()
 run_num = args_outer.run_num
 
-mem_cache = Path('.neural_collapse_cache')
+# mem_cache = Path('.neural_collapse_cache')
+mem_cache = Path('.neural_collapse_cache_old')
 memory = mom.Memory(location=mem_cache)
 # memory.clear()
 
@@ -68,23 +69,57 @@ outdir = exp.core_params['output']
     # return get_compressions(param_dict=param_dict, epoch=epoch,
                             # layer_ids=layer_ids, n_batches=n_batches,
                             # train_out=train_out)
+@memory.cache(ignore=['train_out'])
+def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
+                        n_samples=None, mode='val', train_out=None):
+    if mode != 'val' or n_samples is not None:
+        raise AttributeError('Not implemented yet')
+    model, loader_train, loader_val, run_dir, pd_mom = train_out
+    model.eval()
+    nodes, __ = fe.get_graph_node_names(model)
+    load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
+    model.eval()
+    feature_dict = {}
+    node_range = list(range(len(nodes)))
+    node_range_dict = {key: val for key, val in zip(nodes, node_range)}
+    if isinstance(layer_ids, slice):
+        layer_ids = node_range[layer_ids]
+    layer_id_conv = []
+    nodes_filt = []
+    for layer_id in layer_ids:
+        if isinstance(layer_id, str):
+            if layer_id not in nodes:
+                raise ValueError("layer_id not valid.")
+            feature_dict[layer_id] = layer_id
+            layer_id_conv.append(node_range_dict[layer_id])
+            nodes_filt.append(layer_id)
+        elif isinstance(layer_id, int):
+            layer_key = nodes[layer_id]
+            feature_dict[layer_key] = layer_key
+            layer_id_conv.append(node_range[layer_id])
+            nodes_filt.append(nodes[layer_id])
+    feat_extractor = fe.create_feature_extractor(model, return_nodes=feature_dict)
+    # compression_train = utils.get_compressions_projected(
+        # feat_extractor, loader_train, run_dir, n_batches)
+    dists = utils.get_dists_projected(
+        feat_extractor, loader_val, run_dir, n_batches)
+    # (d_within_avgs, d_across_avgs, d_within_aligned_avgs,
+                 # d_across_aligned_avgs, d_within_aligned_ratio_avgs,
+                 # d_across_aligned_ratio_avgs) = out
+    return dists, layer_id_conv, nodes_filt
+
 
 @memory.cache(ignore=['train_out'])
 def get_compressions(param_dict, epoch, layer_ids, n_batches=n_batches,
                      train_out=None):
-        # mem_name = 'get_compressions'
-        # run_dir = mem_cach/mom.get_run_hash(param_dict)
         model, loader_train, loader_val, run_dir, pd_mom = train_out
         model.eval()
         nodes, __ = fe.get_graph_node_names(model)
-        # feature_dict = {key: key for key in nodes}
-        # feature_dict_lays = feature_dict.copy()
         load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
         model.eval()
         feature_dict = {}
         node_range = list(range(len(nodes)))
-        node_range_dict = {key: val for key, val in
-                           zip(nodes, node_range)}
+        node_range_dict = {key: val for key, val in zip(nodes, node_range)}
         if isinstance(layer_ids, slice):
             layer_ids = node_range[layer_ids]
         layer_id_conv = []
@@ -108,15 +143,10 @@ def get_compressions(param_dict, epoch, layer_ids, n_batches=n_batches,
                                                 run_dir, n_batches)
         return compression_train, compression_val, layer_id_conv, nodes_filt
 
-# @memory.cache
-def get_compressions_over_training_cached(param_dict, epochs_idx=None,
-                                          layer_id=-1, n_batches=n_batches):
-    return get_compressions_over_training(param_dict, epochs_idx=None,
-                                          layer_id=layer_id,
-                                          n_batches=n_batches)
 
 def get_compressions_over_training(param_dict, epochs_idx=None, layer_id=-1,
-                                   n_batches=n_batches):
+                                   n_batches=n_batches, projection=None,
+                                   n_samples=None, mode='val'):
     train_out = train.train(param_dict)
     model, loader_train, loader_val, run_dir, pd_mom = train_out
     epochs = np.array(load_utils.get_epochs(run_dir))
@@ -124,29 +154,32 @@ def get_compressions_over_training(param_dict, epochs_idx=None, layer_id=-1,
         epochs = epochs[epochs_idx]
     ds = []
     for k1, epoch in enumerate(epochs):
-        # out = get_compressions_cached(
-            # param_dict, epoch, [layer_id], n_batches, train_out)
-        out = get_compressions(
-            param_dict, epoch, [layer_id], n_batches, train_out)
-        compression_train, compression_val, layer_id_k1, name_k1 = out
-        layer_id_k1 = layer_id_k1[0]
-        name_k1 = name_k1[0]
-        compression_train = compression_train[0].tolist()
-        compression_val = compression_val[0].tolist()
-        d = {'epoch': epoch, 'compression': compression_train, 
-             'layer_idx': layer_id_k1, 'layer_name': name_k1,
-             'mode': 'train'}
-        d = {**d, **pd_mom}
-        ds.append(d)
-        d = {'epoch': epoch, 'compression': compression_val, 
-             'layer_idx': layer_id_k1, 'layer_name': name_k1,
-             'mode': 'val'}
-        d = {**d, **pd_mom}
-        ds.append(d)
+        if projection is not None:
+            out = get_dists_projected(param_dict, epoch, [layer_id],
+                                      n_batches, n_samples, mode, train_out)
+            dists, layer_id_k1, name_k1 = out
+            compression = (dists[0] / dists[1]).item()
+            d = {'epoch': epoch, 'compression': compression, 
+                 'layer_idx': layer_id_k1[0], 'layer_name': name_k1[0],
+                 'mode': mode}
+            d = {**d, **pd_mom}
+            ds.append(d)
+        else:
+            out = get_compressions(
+                param_dict, epoch, [layer_id], n_batches, train_out)
+            compression_train, compression_val, layer_id_k1, name_k1 = out
+            layer_id_k1 = layer_id_k1[0]
+            name_k1 = name_k1[0]
+            compression_train = compression_train[0].tolist()
+            compression_val = compression_val[0].tolist()
+            d = {'epoch': epoch, 'compression': compression_train, 
+                 'layer_idx': layer_id_k1, 'layer_name': name_k1,
+                 'mode': 'train'}
+            d = {**d, **pd_mom}
+            ds.append(d)
     df = pd.DataFrame(ds)
     df['mode'] = df['mode'].astype("category")
     df['epoch'] = df['epoch'].astype(int)
-    df['layer_idx'] = df['layer_idx'].astype(int)
     return df
 
 
@@ -162,7 +195,8 @@ def get_compressions_over_training_batch(param_dict_list, epochs_idx=None,
 
 
 def get_compressions_over_layers(param_dict, epochs_idx,
-                                 layer_ids=slice(-1), n_batches=n_batches):
+                                 layer_ids=slice(-1), n_batches=n_batches,
+                                 projection=None, n_samples=None, mode='val'):
     train_out = train.train(param_dict)
     model, loader_train, loader_val, run_dir, pd_mom = train_out
     df = pd.DataFrame()
@@ -171,9 +205,16 @@ def get_compressions_over_layers(param_dict, epochs_idx,
         epochs = epochs[epochs_idx]
     ds = []
     for k1, epoch in enumerate(epochs):
-        out = get_compressions(param_dict, epoch, layer_ids, n_batches,
-                                      train_out)
-        compression_train, compression_val, layer_ids_k1, layer_names_k1 = out
+        if projection is not None:
+            out = get_dists_projected(param_dict, epoch, layer_ids,
+                                      n_batches, n_samples, mode, train_out)
+        else:
+            out = get_compressions(param_dict, epoch, layer_ids, n_batches,
+                                          train_out)
+        dists, layer_ids_k1, layer_names_k1 = out
+        # compression_train, compression_val, layer_ids_k1, layer_names_k1 = out
+        compression = dists[0] / dists[1]
+        compression_aligned = dists[2] / dists[3]
         filt = ~torch.isnan(compression_train)
         layer_names_k1 = [n for n, f in zip(layer_names_k1, filt) if f]
         layer_ids_k1 = [n for n, f in zip(layer_ids_k1, filt) if f]
@@ -183,16 +224,10 @@ def get_compressions_over_layers(param_dict, epochs_idx,
             # param_dict, epoch, layer_ids, n_batches)
         for k1, layer_id in enumerate(layer_ids_k1):
             layer_name = layer_names_k1[k1]
-            ct = compression_train[k1]
-            cv = compression_val[k1]
-            d = {'epoch': epoch, 'compression': ct,
-                 'layer_idx': layer_id, 'layer_name': layer_name,
-                 'mode': 'train'}
-            d = {**d, **pd_mom}
-            ds.append(d)
-            d = {'epoch': epoch, 'compression': cv, 
-                 'layer_idx': layer_id, 'layer_name': layer_name,
-                 'mode': 'val'}
+            ct = compression[k1]
+            d = dict(epoch=epoch, compression=compression,
+                     compression_aligned=compression_aligned,
+                     layer_idx=layer_id, layer_name=layer_name, mode=mode)
             d = {**d, **pd_mom}
             ds.append(d)
     df = pd.DataFrame(ds)
@@ -247,9 +282,14 @@ if __name__ == '__main__':
         # df = get_compressions_over_layers(ps, [0, -1])
         # get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # print(run_num)
+    run_num=1
     ps = ps_all[run_num-1]
     df = get_compressions_over_layers(ps, [0, -1])
-    df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
+    # df = get_compressions_over_layers(ps, [0, -1], projection='s')
+    # df = get_compressions_over_training(ps, epochs_idx = [0, -1], projection='s')
+    breakpoint()
+    # df = get_compressions_over_layers(ps, [0, -1])
+    # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # fn(ps_all[run_num-1])
     # df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, 5, 10, 20 -1])
     # df = get_compressions_over_training(ps_all[0], epochs_idx=[0, 5, 10, 20 -1])
