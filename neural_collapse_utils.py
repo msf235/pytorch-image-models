@@ -95,30 +95,6 @@ def within_over_across_class_mean_dist(X, y, breakv=False):
 
     return d_within.item(), d_across.item()
 
-def pairwise_dists_projected(X, y, breakv=False):
-    cs = set(y.tolist())
-    m = len(cs)
-    ds = torch.zeros(m,m)
-    for k1 in range(m):
-        for k2 in range(k1, m):
-            xk1 = X[y == k1]
-            xk1 = xk1.reshape(1, xk1.shape[0], -1) 
-            xk2 = X[y == k2]
-            xk2 = xk2.reshape(1, xk2.shape[0], -1) 
-            d = torch.cdist(xk1, xk2)[0]
-            r1 = d.shape[0]
-            r2 = d.shape[1]
-            if k1 == k2:
-                ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
-            else:
-                ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
-            # if ds[k1, k2] == torch.nan:
-                # breakpoint()
-            
-    d_within = torch.nanmean(torch.diag(ds))
-    d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
-
-    return d_within.item(), d_across.item()
 
 def get_compressions(feat_extractor, loader, run_dir, n_batches):
     data_size = len(loader)
