@@ -179,77 +179,78 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
     across_inputs = []
     print("Reminder to check layer orderings.")
     for k1, (inpdata_batch, labels_batch) in enumerate(loader):
-        tic = time.time()
-        print(k1, '/', len(loader), ' inputs')
-        inpdata += [inpdata_batch]
-        labels += [labels_batch]
-        if (k1 + 1) % n_batches == 0:
-            inpdata = torch.cat(inpdata, dim=0)
-            labels = torch.cat(labels, dim=0).cpu()
-            # labels_pm1 = (2*labels - 1).cpu()
-            # features = feat_extractor(inpdata)
-            featt = feat_extractor(inpdata)
-            features = featt.values()
-            features = [feat.data.squeeze() for feat in features]
-            features_mc = [feat - torch.mean(feat, dim=0) for feat in features]
-            features_mc = [feat.reshape(feat.shape[0], -1).cpu() for feat in
-                           features_mc]
-            ds_within_layers = []
-            ds_across_layers = []
-            ds_within_aligned_layers = []
-            ds_across_aligned_layers = []
-            ds_within_aligned_ratio_layers = []
-            ds_across_aligned_ratio_layers = []
-            for k2, feat in enumerate(features_mc):
-                ds = pairwise_class_dists(feat, labels)
-                m = ds.shape[0]
-                ds_within_layers.append(
-                    (torch.nanmean(torch.diag(ds))).item())
-                ds_across_layers.append(
-                    (torch.sum(torch.triu(ds, 1))/((m-1)**2/2)).item())
-                classf = Classifier(max_iter=lin_class_its, C=10)
-                classf.fit(feat.numpy(), labels.numpy())
-                w = torch.tensor(classf.coef_, dtype=torch.float)
-                b = torch.tensor(classf.intercept_, dtype=torch.float)
-                wn = w / torch.norm(w, dim=1, keepdim=True)
-                D = w.shape[1]
-                P_orths = torch.stack(
-                    [torch.eye(D) - torch.outer(w, w) for w in wn])
-                # feat_align = 
-                # out_layers = within_over_across_class_mean_dist(feat, labels)
-                feat_aligned = wn @ feat.T + b.unsqueeze(dim=1)
-                ds_within_aligned = []
-                ds_across_aligned = []
-                ds_within_aligned_ratio = []
-                ds_across_aligned_ratio = []
-                for k3 in range(m):
-                    ds_aligned = pairwise_class_dists(feat_aligned[k3], labels)
-                    ds_aligned_ratio = ds_aligned / ds
-                    ds_orth_ratio = 1 - ds_aligned_ratio
-                    ds_within_aligned.append(torch.nanmean(
-                        torch.diag(ds_aligned)).item())
-                    ds_across_aligned.append(
-                        (torch.sum(torch.triu(ds_aligned, 1))/((m-1)**2/2)).item())
-                    ds_within_aligned_ratio.append(torch.nanmean(
-                        torch.diag(ds_aligned_ratio)).item())
-                    ds_across_aligned_ratio.append(
-                        (torch.sum(torch.triu(ds_aligned_ratio, 1))/((m-1)**2/2)).item())
-                ds_within_aligned_layers.append(vmean(ds_within_aligned))
-                ds_across_aligned_layers.append(vmean(ds_across_aligned))
-                ds_within_aligned_ratio_layers.append(vmean(ds_within_aligned_ratio))
-                ds_across_aligned_ratio_layers.append(vmean(ds_across_aligned_ratio))
+        if k1 > 77:
+            tic = time.time()
+            print(k1, '/', len(loader), ' inputs')
+            inpdata += [inpdata_batch]
+            labels += [labels_batch]
+            if (k1 + 1) % n_batches == 0:
+                inpdata = torch.cat(inpdata, dim=0)
+                labels = torch.cat(labels, dim=0).cpu()
+                # labels_pm1 = (2*labels - 1).cpu()
+                # features = feat_extractor(inpdata)
+                featt = feat_extractor(inpdata)
+                features = featt.values()
+                features = [feat.data.squeeze() for feat in features]
+                features_mc = [feat - torch.mean(feat, dim=0) for feat in features]
+                features_mc = [feat.reshape(feat.shape[0], -1).cpu() for feat in
+                               features_mc]
+                ds_within_layers = []
+                ds_across_layers = []
+                ds_within_aligned_layers = []
+                ds_across_aligned_layers = []
+                ds_within_aligned_ratio_layers = []
+                ds_across_aligned_ratio_layers = []
+                for k2, feat in enumerate(features_mc):
+                    ds = pairwise_class_dists(feat, labels)
+                    m = ds.shape[0]
+                    ds_within_layers.append(
+                        (torch.nanmean(torch.diag(ds))).item())
+                    ds_across_layers.append(
+                        (torch.sum(torch.triu(ds, 1))/((m-1)**2/2)).item())
+                    classf = Classifier(max_iter=lin_class_its, C=10)
+                    classf.fit(feat.numpy(), labels.numpy())
+                    w = torch.tensor(classf.coef_, dtype=torch.float)
+                    b = torch.tensor(classf.intercept_, dtype=torch.float)
+                    wn = w / torch.norm(w, dim=1, keepdim=True)
+                    D = w.shape[1]
+                    P_orths = torch.stack(
+                        [torch.eye(D) - torch.outer(w, w) for w in wn])
+                    # feat_align = 
+                    # out_layers = within_over_across_class_mean_dist(feat, labels)
+                    feat_aligned = wn @ feat.T + b.unsqueeze(dim=1)
+                    ds_within_aligned = []
+                    ds_across_aligned = []
+                    ds_within_aligned_ratio = []
+                    ds_across_aligned_ratio = []
+                    for k3 in range(m):
+                        ds_aligned = pairwise_class_dists(feat_aligned[k3], labels)
+                        ds_aligned_ratio = ds_aligned / ds
+                        ds_orth_ratio = 1 - ds_aligned_ratio
+                        ds_within_aligned.append(torch.nanmean(
+                            torch.diag(ds_aligned)).item())
+                        ds_across_aligned.append(
+                            (torch.sum(torch.triu(ds_aligned, 1))/((m-1)**2/2)).item())
+                        ds_within_aligned_ratio.append(torch.nanmean(
+                            torch.diag(ds_aligned_ratio)).item())
+                        ds_across_aligned_ratio.append(
+                            (torch.sum(torch.triu(ds_aligned_ratio, 1))/((m-1)**2/2)).item())
+                    ds_within_aligned_layers.append(vmean(ds_within_aligned))
+                    ds_across_aligned_layers.append(vmean(ds_across_aligned))
+                    ds_within_aligned_ratio_layers.append(vmean(ds_within_aligned_ratio))
+                    ds_across_aligned_ratio_layers.append(vmean(ds_across_aligned_ratio))
 
-            ds_within_tot.append(ds_within_layers)
-            ds_across_tot.append(ds_across_layers)
-            ds_within_aligned_tot.append(ds_within_aligned_layers)
-            ds_across_aligned_tot.append(ds_across_aligned_layers)
-            ds_within_aligned_ratio_tot.append(ds_within_aligned_ratio_layers)
-            ds_across_aligned_ratio_tot.append(ds_across_aligned_ratio_layers)
+                ds_within_tot.append(ds_within_layers)
+                ds_across_tot.append(ds_across_layers)
+                ds_within_aligned_tot.append(ds_within_aligned_layers)
+                ds_across_aligned_tot.append(ds_across_aligned_layers)
+                ds_within_aligned_ratio_tot.append(ds_within_aligned_ratio_layers)
+                ds_across_aligned_ratio_tot.append(ds_across_aligned_ratio_layers)
 
-            inpdata = []
-            labels = []
-            toc = time.time()
-            print('time elapsed: ', toc-tic)
+                inpdata = []
+                labels = []
+                toc = time.time()
+                print('time elapsed: ', toc-tic)
     ds_within_tot = zip(*ds_within_tot)
     ds_across_tot = zip(*ds_across_tot)
     ds_within_aligned_tot = zip(*ds_within_aligned_tot)
