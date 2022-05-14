@@ -51,14 +51,15 @@ def get_pcs_covariance(X, pcs, original_shape=True, return_extra=False):
         return pca_proj
 
 def pairwise_class_dists(X, y, breakv=False):
-    cs = set(y.tolist())
+    yl = y.tolist()
+    cs = set(yl)
     m = len(cs)
-    ds = torch.zeros(m,m)
-    for k1 in range(m):
-        for k2 in range(k1, m):
-            xk1 = X[y == k1]
+    ds = torch.zeros(m, m)
+    for k1, y1 in enumerate(cs):
+        for k2, y2 in enumerate(cs):
+            xk1 = X[y == y1]
             xk1 = xk1.reshape(1, xk1.shape[0], -1) 
-            xk2 = X[y == k2]
+            xk2 = X[y == y2]
             xk2 = xk2.reshape(1, xk2.shape[0], -1) 
             d = torch.cdist(xk1, xk2)[0]
             r1 = d.shape[0]
