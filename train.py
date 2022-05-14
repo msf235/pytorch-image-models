@@ -368,16 +368,11 @@ def train(args_set_dict):
     del args_mom['workers']
     del args_mom['output']
     del args_mom['experiment']
-    args_mom_old = args_mom.copy()
-    del args_mom_old['inj_noise_std']
     # args_mom['torchscript'] = False
 
     for key, val in args_mom.items():
         if hasattr(val, '__len__'):
             args_mom[key] = str(val)
-    for key, val in args_mom_old.items():
-        if hasattr(val, '__len__'):
-            args_mom_old[key] = str(val)
     
     if args.log_wandb:
         if has_wandb:
@@ -534,10 +529,6 @@ def train(args_set_dict):
             # str(data_config['input_size'][-1])
         # ])
         exp_name = ''
-    output_dir = get_outdir(args.output if args.output
-                            else './output/train', exp_name)
-    mom.param_converter(output_dir, 'run_', args_mom_old, args_mom)
-    sys.exit()
     output_dir = get_outdir(args.output if args.output
                             else './output/train', exp_name)
     run_exists = mom.run_exists(args_mom, output_dir)
