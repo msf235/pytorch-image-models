@@ -139,7 +139,7 @@ def pairwise_class_dists(X, y, breakv=False):
     # return compression
 
 def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
-                        lin_class_its):
+                        lin_class_its, device):
     data_size = len(loader)
     feat_col = []
     labels_col = []
@@ -156,23 +156,29 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
     across_inputs = []
     print("Reminder to check layer orderings.")
     print("Loading data.")
-    tic = time.time()
+    tica = time.time()
+    tic1 = time.time()
+    tdiff_feat = []
+    tdiff_d = []
+    tdiff_class = []
+    tdiff_proj_class = []
     for k1, (inpdata_batch, labels_batch) in enumerate(loader):
-        toc = time.time()
-        print(f"Data loaded in {toc-tic}s", flush=True)
+        toc1 = time.time()
+        print(f"Data loaded in {toc1-tic1}s", flush=True)
         tic = time.time()
         print(k1, '/', len(loader), ' inputs')
-        inpdata += [inpdata_batch.cpu()]
-        labels += [labels_batch.cpu()]
+        inpdata += [inpdata_batch.to(device)]
+        labels += [labels_batch.to(device)]
         if (k1 + 1) % n_batches == 0:
             inpdata = torch.cat(inpdata, dim=0)
             labels = torch.cat(labels, dim=0)
             # labels_pm1 = (2*labels - 1).cpu()
             # features = feat_extractor(inpdata)
-            tic = time.time()
+            tic1 = time.time()
             featt = feat_extractor(inpdata)
-            toc = time.time()
-            print(f"Features generated in {toc-tic}s", flush=True)
+            toc1 = time.time()
+            tdiff_feat.append(toc1-tic1)
+            # print(f"Features generated in {toc1-tic1}s", flush=True)
             features = featt.values()
             features = [feat.data.squeeze() for feat in features]
             features_mc = [feat - torch.mean(feat, dim=0) for feat in features]
@@ -185,22 +191,21 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
             ds_within_aligned_ratio_layers = []
             ds_across_aligned_ratio_layers = []
             for k2, feat in enumerate(features_mc):
-                print(f"Computing distances.", flush=True)
-                tic = time.time()
+                # ticf = time.time()
+                tic1 = time.time()
                 ds = pairwise_class_dists(feat, labels)
-                toc = time.time()
-                print(f"Features generated in {toc-tic}s", flush=True)
+                toc1 = time.time()
+                tdiff_d.append(toc1-tic1)
                 m = ds.shape[0]
                 ds_within_layers.append(
                     (torch.nanmean(torch.diag(ds))).item())
                 ds_across_layers.append(
                     (torch.sum(torch.triu(ds, 1))/((m-1)**2/2)).item())
-                print(f"Starting classifier", flush=True)
-                tic = time.time()
+                tic1 = time.time()
                 classf = Classifier(max_iter=lin_class_its, C=10)
-                classf.fit(feat.numpy(), labels.numpy())
-                toc = time.time()
-                print(f"Classification finished in {toc-tic}s", flush=True)
+                classf.fit(feat.cpu().numpy(), labels.cpu().numpy())
+                toc1 = time.time()
+                tdiff_class.append(toc1-tic1)
                 w = torch.tensor(classf.coef_, dtype=torch.float)
                 b = torch.tensor(classf.intercept_, dtype=torch.float)
                 wn = w / torch.norm(w, dim=1, keepdim=True)
@@ -209,15 +214,16 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                     [torch.eye(D) - torch.outer(w, w) for w in wn])
                 # feat_align = 
                 # out_layers = within_over_across_class_mean_dist(feat, labels)
-                feat_aligned = wn @ feat.T + b.unsqueeze(dim=1)
+                feat_aligned = wn @ feat.cpu().T + b.unsqueeze(dim=1)
                 ds_within_aligned = []
                 ds_across_aligned = []
                 ds_within_aligned_ratio = []
                 ds_across_aligned_ratio = []
-                print(f"Computing projected classifications.", flush=True)
-                tic = time.time()
+                # print(f"Computing projected classifications.", flush=True)
+                tic1 = time.time()
                 for k3 in range(m):
-                    ds_aligned = pairwise_class_dists(feat_aligned[k3], labels)
+                    ds_aligned = pairwise_class_dists(
+                        feat_aligned[k3], labels)
                     ds_aligned_ratio = ds_aligned / ds
                     ds_orth_ratio = 1 - ds_aligned_ratio
                     ds_within_aligned.append(torch.nanmean(
@@ -228,13 +234,16 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                         torch.diag(ds_aligned_ratio)).item())
                     ds_across_aligned_ratio.append(
                         (torch.sum(torch.triu(ds_aligned_ratio, 1))/(m*(m-1)/2)).item())
-                toc = time.time()
-                print(f"Finished computing projected classifications in",
-                      f"{toc-tic}s", flush=True)
+                toc1 = time.time()
+                tdiff_proj_class.append(toc1-tic1)
+                # print(f"Finished computing projected classifications in",
+                      # f"{toc1-tic1}s", flush=True)
                 ds_within_aligned_layers.append(vmean(ds_within_aligned))
                 ds_across_aligned_layers.append(vmean(ds_across_aligned))
                 ds_within_aligned_ratio_layers.append(vmean(ds_within_aligned_ratio))
                 ds_across_aligned_ratio_layers.append(vmean(ds_across_aligned_ratio))
+                # tocf = time.time()
+                # print(f"Time this layer: {tocf-ticf}")
 
             ds_within_tot.append(ds_within_layers)
             ds_across_tot.append(ds_across_layers)
@@ -246,8 +255,17 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
             inpdata = []
             labels = []
             toc = time.time()
-            print('time elapsed: ', toc-tic)
-        tic = time.time()
+            print('time elapsed:', toc-tic)
+            print('avg feature compute time:', vmean(tdiff_feat))
+            print('avg distance compute time:', vmean(tdiff_d))
+            print('avg classification compute time:', vmean(tdiff_class))
+            print('avg projected classification compute time:', vmean(tdiff_proj_class))
+            tdiff_feat = []
+            tdiff_d = []
+            tdiff_class = []
+            tdiff_proj_class = []
+            sys.exit()
+        tic1 = time.time()
 
     ds_within_tot = zip(*ds_within_tot)
     ds_across_tot = zip(*ds_across_tot)
