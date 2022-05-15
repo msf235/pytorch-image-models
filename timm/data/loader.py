@@ -77,15 +77,21 @@ class PrefetchLoader:
             re_prob=0.,
             re_mode='const',
             re_count=1,
-            re_num_splits=0):
+            re_num_splits=0,
+            device='cuda'):
 
         mean = expand_to_chs(mean, channels)
         std = expand_to_chs(std, channels)
         normalization_shape = (1, channels, 1, 1)
 
         self.loader = loader
-        self.mean = torch.tensor([x * 255 for x in mean]).cuda().view(normalization_shape)
-        self.std = torch.tensor([x * 255 for x in std]).cuda().view(normalization_shape)
+        self.device = device
+        if device != 'cpu':
+            self.mean = torch.tensor([x * 255 for x in mean]).cuda().view(normalization_shape)
+            self.std = torch.tensor([x * 255 for x in std]).cuda().view(normalization_shape)
+        else:
+            self.mean = torch.tensor([x * 255 for x in mean]).view(normalization_shape)
+            self.std = torch.tensor([x * 255 for x in std]).view(normalization_shape)
         self.fp16 = fp16
         if fp16:
             self.mean = self.mean.half()
@@ -97,13 +103,33 @@ class PrefetchLoader:
             self.random_erasing = None
 
     def __iter__(self):
-        stream = torch.cuda.Stream()
-        first = True
+        if self.device != 'cpu':
+            stream = torch.cuda.Stream()
+            first = True
 
-        for next_input, next_target in self.loader:
-            with torch.cuda.stream(stream):
-                next_input = next_input.cuda(non_blocking=True)
-                next_target = next_target.cuda(non_blocking=True)
+            for next_input, next_target in self.loader:
+                with torch.cuda.stream(stream):
+                    next_input = next_input.cuda(non_blocking=True)
+                    next_target = next_target.cuda(non_blocking=True)
+                    if self.fp16:
+                        next_input = next_input.half().sub_(self.mean).div_(self.std)
+                    else:
+                        next_input = next_input.float().sub_(self.mean).div_(self.std)
+                    if self.random_erasing is not None:
+                        next_input = self.random_erasing(next_input)
+
+                if not first:
+                    yield input, target
+                else:
+                    first = False
+
+                torch.cuda.current_stream().wait_stream(stream)
+                input = next_input
+                target = next_target
+        else:
+            first = True
+
+            for next_input, next_target in self.loader:
                 if self.fp16:
                     next_input = next_input.half().sub_(self.mean).div_(self.std)
                 else:
@@ -116,7 +142,6 @@ class PrefetchLoader:
             else:
                 first = False
 
-            torch.cuda.current_stream().wait_stream(stream)
             input = next_input
             target = next_target
 
@@ -194,6 +219,7 @@ def create_loader(
         use_multi_epochs_loader=False,
         persistent_workers=True,
         worker_seeding='all',
+        device='cuda',
 ):
     re_num_splits = 0
     if re_split:
@@ -252,7 +278,7 @@ def create_loader(
         pin_memory=pin_memory,
         drop_last=is_training,
         worker_init_fn=partial(_worker_init, worker_seeding=worker_seeding),
-        persistent_workers=persistent_workers
+        persistent_workers=persistent_workers,
     )
     try:
         loader = loader_class(dataset, **loader_args)
@@ -270,7 +296,8 @@ def create_loader(
             re_prob=prefetch_re_prob,
             re_mode=re_mode,
             re_count=re_count,
-            re_num_splits=re_num_splits
+            re_num_splits=re_num_splits,
+            device=device,
         )
 
     return loader

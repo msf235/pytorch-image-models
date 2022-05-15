@@ -73,7 +73,7 @@ outdir = exp.core_params['output']
                             # train_out=train_out)
 # @memory.cache(ignore=['train_out', 'param_dict.output', 'param_dict.workers',
                       # 'param_dict.resume', 'param_dict.dataset_download',
-                      # 'param_dict.device'])
+                      # 'param_dict.device', 'param_dict.no_prefetcher'])
 def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
                         n_samples=None, lin_class_its=50, mode='val',
                         train_out=None):
@@ -306,17 +306,17 @@ if __name__ == '__main__':
     # df = get_compressions_over_training(ps_set1, epochs_idx=[0, 5, 10, 20 -1])
     # df = get_compressions_over_training_batch(ps_set1, epochs_idx=[0, 5, 10, 20 -1],
                                         # projection='x')
-    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
-                 'weight_decay']
-    dfn = df[plot_keys]
-    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
-    df1 = dfn[filt]
-    plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
-             col='momentum', figname='mnist_sgd.png')
-    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
-    df1 = dfn[filt]
-    plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
-             figname='mnist_rmsprop.png')
+    # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
+                 # 'weight_decay']
+    # dfn = df[plot_keys]
+    # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
+    # df1 = dfn[filt]
+    # plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
+             # col='momentum', figname='mnist_sgd.png')
+    # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
+    # df1 = dfn[filt]
+    # plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
+             # figname='mnist_rmsprop.png')
 
     # filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='momentum')
     # df1 = dfn[filt]

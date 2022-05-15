@@ -371,6 +371,7 @@ def train(args_set_dict):
     del args_mom['output']
     del args_mom['experiment']
     del args_mom['device']
+    args_mom['no_prefetcher'] = False
     # args_mom['torchscript'] = False
 
     for key, val in args_mom.items():
@@ -665,6 +666,7 @@ def train(args_set_dict):
         pin_memory=args.pin_mem,
         use_multi_epochs_loader=args.use_multi_epochs_loader,
         worker_seeding=args.worker_seeding,
+        device=args.device,
     )
 
     loader_eval = create_loader(
@@ -681,6 +683,7 @@ def train(args_set_dict):
         distributed=args.distributed,
         crop_pct=data_config['crop_pct'],
         pin_memory=args.pin_mem,
+        device=args.device,
     )
 
     # setup loss function
@@ -835,7 +838,8 @@ def train_one_epoch(
         last_batch = batch_idx == last_idx
         data_time_m.update(time.time() - end)
         if not args.prefetcher:
-            input, target = input.cuda(), target.cuda()
+            if args.device != 'cpu':
+                input, target = input.cuda(), target.cuda()
             if mixup_fn is not None:
                 input, target = mixup_fn(input, target)
         if args.channels_last:
@@ -866,7 +870,8 @@ def train_one_epoch(
         if model_ema is not None:
             model_ema.update(model)
 
-        torch.cuda.synchronize()
+        if args.device != 'cpu':
+            torch.cuda.synchronize()
         num_updates += 1
         batch_time_m.update(time.time() - end)
         if last_batch or batch_idx % args.log_interval == 0:
