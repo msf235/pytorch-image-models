@@ -144,7 +144,8 @@ class Memory:
                 try:
                     if verbose >= 1:
                         print("Matching parameters for memoized function",
-                              f"\'{funcname}\' found.\nLoading from previous run.")
+                              f"\'{funcname}\' found.\nLoading from previous",
+                              f"run at location {filepath}.\n")
                         print()
                     with open(filepath, 'rb') as fid:
                         return pkl.load(fid)

@@ -71,9 +71,9 @@ outdir = exp.core_params['output']
     # return get_compressions(param_dict=param_dict, epoch=epoch,
                             # layer_ids=layer_ids, n_batches=n_batches,
                             # train_out=train_out)
-# @memory.cache(ignore=['train_out', 'param_dict.output', 'param_dict.workers',
-                      # 'param_dict.resume', 'param_dict.dataset_download',
-                      # 'param_dict.device', 'param_dict.no_prefetcher'])
+@memory.cache(ignore=['train_out', 'param_dict.output', 'param_dict.workers',
+                      'param_dict.resume', 'param_dict.dataset_download',
+                      'param_dict.device', 'param_dict.no_prefetcher'])
 def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
                         n_samples=None, lin_class_its=50, mode='val',
                         train_out=None):
@@ -292,13 +292,13 @@ if __name__ == '__main__':
     # print(run_num)
     # run_num=1
     print('run_num:', run_num)
-    # ps = ps_all[run_num-1]
+    ps = ps_all[run_num-1]
     # fn(ps)
     # print("done.")
-    ps = ps_all[0]
+    # ps = ps_all[0]
     # df = get_compressions_over_layers(ps, [0, -1])
     df = get_compressions_over_layers(ps, [0, -1], projection='s')
-    # df = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1], projection='s')
+    df = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1], projection='s')
     # df = get_compressions_over_layers(ps, [0, -1])
     # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # fn(ps_all[run_num-1])
