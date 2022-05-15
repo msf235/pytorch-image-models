@@ -155,7 +155,11 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
     within_inputs = []
     across_inputs = []
     print("Reminder to check layer orderings.")
+    print("Loading data.")
+    tic = time.time()
     for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+        toc = time.time()
+        print(f"Data loaded in {toc-tic}s", flush=True)
         tic = time.time()
         print(k1, '/', len(loader), ' inputs')
         inpdata += [inpdata_batch.cpu()]
@@ -165,7 +169,10 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
             labels = torch.cat(labels, dim=0)
             # labels_pm1 = (2*labels - 1).cpu()
             # features = feat_extractor(inpdata)
+            tic = time.time()
             featt = feat_extractor(inpdata)
+            toc = time.time()
+            print(f"Features generated in {toc-tic}s", flush=True)
             features = featt.values()
             features = [feat.data.squeeze() for feat in features]
             features_mc = [feat - torch.mean(feat, dim=0) for feat in features]
@@ -227,6 +234,8 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
             labels = []
             toc = time.time()
             print('time elapsed: ', toc-tic)
+        tic = time.time()
+
     ds_within_tot = zip(*ds_within_tot)
     ds_across_tot = zip(*ds_across_tot)
     ds_within_aligned_tot = zip(*ds_within_aligned_tot)
