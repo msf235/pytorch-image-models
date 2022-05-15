@@ -185,14 +185,22 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
             ds_within_aligned_ratio_layers = []
             ds_across_aligned_ratio_layers = []
             for k2, feat in enumerate(features_mc):
+                print(f"Computing distances.", flush=True)
+                tic = time.time()
                 ds = pairwise_class_dists(feat, labels)
+                toc = time.time()
+                print(f"Features generated in {toc-tic}s", flush=True)
                 m = ds.shape[0]
                 ds_within_layers.append(
                     (torch.nanmean(torch.diag(ds))).item())
                 ds_across_layers.append(
                     (torch.sum(torch.triu(ds, 1))/((m-1)**2/2)).item())
+                print(f"Starting classifier", flush=True)
+                tic = time.time()
                 classf = Classifier(max_iter=lin_class_its, C=10)
                 classf.fit(feat.numpy(), labels.numpy())
+                toc = time.time()
+                print(f"Classification finished in {toc-tic}s", flush=True)
                 w = torch.tensor(classf.coef_, dtype=torch.float)
                 b = torch.tensor(classf.intercept_, dtype=torch.float)
                 wn = w / torch.norm(w, dim=1, keepdim=True)
@@ -206,6 +214,8 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                 ds_across_aligned = []
                 ds_within_aligned_ratio = []
                 ds_across_aligned_ratio = []
+                print(f"Computing projected classifications.", flush=True)
+                tic = time.time()
                 for k3 in range(m):
                     ds_aligned = pairwise_class_dists(feat_aligned[k3], labels)
                     ds_aligned_ratio = ds_aligned / ds
@@ -218,6 +228,9 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                         torch.diag(ds_aligned_ratio)).item())
                     ds_across_aligned_ratio.append(
                         (torch.sum(torch.triu(ds_aligned_ratio, 1))/(m*(m-1)/2)).item())
+                toc = time.time()
+                print(f"Finished computing projected classifications in",
+                      f"{toc-tic}s", flush=True)
                 ds_within_aligned_layers.append(vmean(ds_within_aligned))
                 ds_across_aligned_layers.append(vmean(ds_across_aligned))
                 ds_within_aligned_ratio_layers.append(vmean(ds_within_aligned_ratio))
