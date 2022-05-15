@@ -264,7 +264,6 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
             tdiff_d = []
             tdiff_class = []
             tdiff_proj_class = []
-            sys.exit()
         tic1 = time.time()
 
     ds_within_tot = zip(*ds_within_tot)
