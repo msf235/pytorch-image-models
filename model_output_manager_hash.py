@@ -128,9 +128,12 @@ class Memory:
                 for key in ignore:
                     keysp = key.split('.')
                     if len(keysp) == 1:
-                        del arg_dict[key]
+                        if key in arg_dict:
+                            del arg_dict[key]
                     else:
-                        del arg_dict[keysp[0]][keysp[1]]
+                        if keysp[0] in arg_dict:
+                            if keysp[1] in arg_dict[keysp[0]]:
+                                del arg_dict[keysp[0]][keysp[1]]
             for key, val in arg_dict.items():
                 if isinstance(val, dict):
                     arg_dict[key] = {key: value for key, value in sorted(arg_dict[key].items())}
