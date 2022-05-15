@@ -99,6 +99,8 @@ parser.add_argument('--model', default='resnet50', type=str, metavar='MODEL',
                     help='Name of model to train (default: "resnet50"')
 parser.add_argument('--pretrained', action='store_true', default=False,
                     help='Start with pretrained version of specified network (if avail)')
+parser.add_argument('--device', default='cuda:0', type=str, metavar='MODEL',
+                    help='Device on which to train or load model (default: "cuda:0"')
 parser.add_argument('--initial-checkpoint', default='', type=str, metavar='PATH',
                     help='Initialize model from this checkpoint (default: none)')
 # parser.add_argument('--resume', default='', type=str, metavar='PATH',
@@ -368,6 +370,7 @@ def train(args_set_dict):
     del args_mom['workers']
     del args_mom['output']
     del args_mom['experiment']
+    del args_mom['device']
     # args_mom['torchscript'] = False
 
     for key, val in args_mom.items():
@@ -387,7 +390,7 @@ def train(args_set_dict):
     args.distributed = False
     if 'WORLD_SIZE' in os.environ:
         args.distributed = int(os.environ['WORLD_SIZE']) > 1
-    args.device = 'cuda:0'
+    # args.device = 'cuda:0'
     args.world_size = 1
     args.rank = 0  # global rank
     if args.distributed:
@@ -476,7 +479,8 @@ def train(args_set_dict):
         model = convert_splitbn_model(model, max(num_aug_splits, 2))
 
     # move model to GPU, enable channels last layout if set
-    model.cuda()
+    if args.device != 'cpu':
+        model.cuda()
     if args.channels_last:
         model = model.to(memory_format=torch.channels_last)
 

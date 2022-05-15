@@ -71,16 +71,20 @@ outdir = exp.core_params['output']
     # return get_compressions(param_dict=param_dict, epoch=epoch,
                             # layer_ids=layer_ids, n_batches=n_batches,
                             # train_out=train_out)
-@memory.cache(ignore=['train_out', 'param_dict.output', 'param_dict.workers',
-                      'param_dict.resume', 'param_dict.dataset_download'])
+# @memory.cache(ignore=['train_out', 'param_dict.output', 'param_dict.workers',
+                      # 'param_dict.resume', 'param_dict.dataset_download',
+                      # 'param_dict.device'])
 def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
-                        n_samples=None, lin_class_its=50, mode='val', train_out=None):
+                        n_samples=None, lin_class_its=50, mode='val',
+                        train_out=None):
     if mode != 'val' or n_samples is not None:
         raise AttributeError('Not implemented yet')
     model, loader_train, loader_val, run_dir, pd_mom = train_out
     nodes, __ = fe.get_graph_node_names(model)
-    load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
-    model.eval()
+    load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch,
+                                             device='cpu')
+    # model.eval().cpu()
+    # model.eval()
     feature_dict = {}
     node_range = list(range(len(nodes)))
     node_range_dict = {key: val for key, val in zip(nodes, node_range)}
@@ -188,11 +192,12 @@ def get_compressions_over_training(param_dict, epochs_idx=None, layer_id=-1,
 
 # @memory.cache
 def get_compressions_over_training_batch(param_dict_list, epochs_idx=None,
-                                         n_batches=n_batches,):
+                                         layer_id=-1, n_batches=n_batches,
+                                         projection=None):
     dfs = []
     for param_dict in param_dict_list:
         dfs += [get_compressions_over_training(param_dict, epochs_idx,
-                                               n_batches)]
+                                               layer_id, n_batches, projection)]
         
     return pd.concat(dfs, ignore_index=True)
 
@@ -287,28 +292,31 @@ if __name__ == '__main__':
     # print(run_num)
     # run_num=1
     print('run_num:', run_num)
-    ps = ps_all[run_num-1]
+    # ps = ps_all[run_num-1]
     # fn(ps)
     # print("done.")
+    ps = ps_all[0]
     # df = get_compressions_over_layers(ps, [0, -1])
     df = get_compressions_over_layers(ps, [0, -1], projection='s')
-    df = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1], projection='s')
+    # df = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1], projection='s')
     # df = get_compressions_over_layers(ps, [0, -1])
     # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # fn(ps_all[run_num-1])
     # df = get_compressions_over_training_batch(ps_all, epochs_idx=[0, 5, 10, 20 -1])
-    # df = get_compressions_over_training(ps_all[0], epochs_idx=[0, 5, 10, 20 -1])
-    # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
-                 # 'weight_decay']
-    # dfn = df[plot_keys]
-    # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
-    # df1 = dfn[filt]
-    # plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
-             # col='momentum', figname='mnist_sgd.png')
-    # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
-    # df1 = dfn[filt]
-    # plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
-             # figname='mnist_rmsprop.png')
+    # df = get_compressions_over_training(ps_set1, epochs_idx=[0, 5, 10, 20 -1])
+    # df = get_compressions_over_training_batch(ps_set1, epochs_idx=[0, 5, 10, 20 -1],
+                                        # projection='x')
+    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
+                 'weight_decay']
+    dfn = df[plot_keys]
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
+    df1 = dfn[filt]
+    plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
+             col='momentum', figname='mnist_sgd.png')
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
+    df1 = dfn[filt]
+    plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
+             figname='mnist_rmsprop.png')
 
     # filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='momentum')
     # df1 = dfn[filt]

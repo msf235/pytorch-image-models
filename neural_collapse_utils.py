@@ -65,77 +65,78 @@ def pairwise_class_dists(X, y, breakv=False):
             r1 = d.shape[0]
             r2 = d.shape[1]
             if k1 == k2:
-                ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
+                nu = r1*(r1-1)/2
+                ds[k1, k2] = torch.sum(torch.triu(d,1)) / nu
             else:
-                ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
+                ds[k1, k2] = torch.mean(d)
     return ds 
 
-def within_over_across_class_mean_dist(X, y, breakv=False):
-    cs = set(y.tolist())
-    m = len(cs)
-    ds = torch.zeros(m,m)
-    for k1 in range(m):
-        for k2 in range(k1, m):
-            xk1 = X[y == k1]
-            xk1 = xk1.reshape(1, xk1.shape[0], -1) 
-            xk2 = X[y == k2]
-            xk2 = xk2.reshape(1, xk2.shape[0], -1) 
-            d = torch.cdist(xk1, xk2)[0]
-            r1 = d.shape[0]
-            r2 = d.shape[1]
-            if k1 == k2:
-                ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
-            else:
-                ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
-            # if ds[k1, k2] == torch.nan:
-                # breakpoint()
+# def within_over_across_class_mean_dist(X, y, breakv=False):
+    # cs = set(y.tolist())
+    # m = len(cs)
+    # ds = torch.zeros(m,m)
+    # for k1 in range(m):
+        # for k2 in range(k1, m):
+            # xk1 = X[y == k1]
+            # xk1 = xk1.reshape(1, xk1.shape[0], -1) 
+            # xk2 = X[y == k2]
+            # xk2 = xk2.reshape(1, xk2.shape[0], -1) 
+            # d = torch.cdist(xk1, xk2)[0]
+            # r1 = d.shape[0]
+            # r2 = d.shape[1]
+            # if k1 == k2:
+                # ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
+            # else:
+                # ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
+            # # if ds[k1, k2] == torch.nan:
+                # # breakpoint()
             
-    d_within = torch.nanmean(torch.diag(ds))
-    d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
+    # d_within = torch.nanmean(torch.diag(ds))
+    # d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
 
-    return d_within.item(), d_across.item()
+    # return d_within.item(), d_across.item()
 
 
-def get_compressions(feat_extractor, loader, run_dir, n_batches):
-    data_size = len(loader)
-    feat_col = []
-    labels_col = []
-    d_within = []
-    d_across = []
-    inpdata = []
-    labels = []
-    out_inputs = []
-    within_inputs = []
-    across_inputs = []
-    print("Reminder to check layer orderings.")
-    for k1, (inpdata_batch, labels_batch) in enumerate(loader):
-        inpdata += [inpdata_batch]
-        labels += [labels_batch]
-        if (k1 + 1) % n_batches == 0:
-            inpdata = torch.cat(inpdata, dim=0)
-            labels = torch.cat(labels, dim=0)
-            # features = feat_extractor(inpdata)
-            featt = feat_extractor(inpdata)
-            features = featt.values()
-            features = [feat.data.squeeze() for feat in features]
-            breakv = k1 >= len(loader)-1
-            out_layers = [within_over_across_class_mean_dist(feat, labels,
-                                                             breakv=breakv) for
-                          feat in features]
-            within_layers = [o[0] for o in out_layers]
-            across_layers = [o[1] for o in out_layers]
+# def get_compressions(feat_extractor, loader, run_dir, n_batches):
+    # data_size = len(loader)
+    # feat_col = []
+    # labels_col = []
+    # d_within = []
+    # d_across = []
+    # inpdata = []
+    # labels = []
+    # out_inputs = []
+    # within_inputs = []
+    # across_inputs = []
+    # print("Reminder to check layer orderings.")
+    # for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+        # inpdata += [inpdata_batch]
+        # labels += [labels_batch]
+        # if (k1 + 1) % n_batches == 0:
+            # inpdata = torch.cat(inpdata, dim=0)
+            # labels = torch.cat(labels, dim=0)
+            # # features = feat_extractor(inpdata)
+            # featt = feat_extractor(inpdata)
+            # features = featt.values()
+            # features = [feat.data.squeeze() for feat in features]
+            # breakv = k1 >= len(loader)-1
+            # out_layers = [within_over_across_class_mean_dist(feat, labels,
+                                                             # breakv=breakv) for
+                          # feat in features]
+            # within_layers = [o[0] for o in out_layers]
+            # across_layers = [o[1] for o in out_layers]
             
-            within_inputs += [within_layers]
-            across_inputs += [across_layers]
-            inpdata = []
-            labels = []
-    d_within = zip(*within_inputs)
-    d_across = zip(*across_inputs)
+            # within_inputs += [within_layers]
+            # across_inputs += [across_layers]
+            # inpdata = []
+            # labels = []
+    # d_within = zip(*within_inputs)
+    # d_across = zip(*across_inputs)
 
-    d_within_avgs = torch.tensor([vmean(d) for d in d_within])
-    d_across_avgs = torch.tensor([vmean(d) for d in d_across])
-    compression = d_within_avgs / d_across_avgs
-    return compression
+    # d_within_avgs = torch.tensor([vmean(d) for d in d_within])
+    # d_across_avgs = torch.tensor([vmean(d) for d in d_across])
+    # compression = d_within_avgs / d_across_avgs
+    # return compression
 
 def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                         lin_class_its):
@@ -157,11 +158,11 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
     for k1, (inpdata_batch, labels_batch) in enumerate(loader):
         tic = time.time()
         print(k1, '/', len(loader), ' inputs')
-        inpdata += [inpdata_batch]
-        labels += [labels_batch]
+        inpdata += [inpdata_batch.cpu()]
+        labels += [labels_batch.cpu()]
         if (k1 + 1) % n_batches == 0:
             inpdata = torch.cat(inpdata, dim=0)
-            labels = torch.cat(labels, dim=0).cpu()
+            labels = torch.cat(labels, dim=0)
             # labels_pm1 = (2*labels - 1).cpu()
             # features = feat_extractor(inpdata)
             featt = feat_extractor(inpdata)
@@ -205,11 +206,11 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                     ds_within_aligned.append(torch.nanmean(
                         torch.diag(ds_aligned)).item())
                     ds_across_aligned.append(
-                        (torch.sum(torch.triu(ds_aligned, 1))/((m-1)**2/2)).item())
+                        (torch.sum(torch.triu(ds_aligned, 1))/(m*(m-1)/2)).item())
                     ds_within_aligned_ratio.append(torch.nanmean(
                         torch.diag(ds_aligned_ratio)).item())
                     ds_across_aligned_ratio.append(
-                        (torch.sum(torch.triu(ds_aligned_ratio, 1))/((m-1)**2/2)).item())
+                        (torch.sum(torch.triu(ds_aligned_ratio, 1))/(m*(m-1)/2)).item())
                 ds_within_aligned_layers.append(vmean(ds_within_aligned))
                 ds_across_aligned_layers.append(vmean(ds_across_aligned))
                 ds_within_aligned_ratio_layers.append(vmean(ds_within_aligned_ratio))
