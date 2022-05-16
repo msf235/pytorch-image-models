@@ -210,8 +210,8 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                 b = torch.tensor(classf.intercept_, dtype=torch.float)
                 wn = w / torch.norm(w, dim=1, keepdim=True)
                 D = w.shape[1]
-                P_orths = torch.stack(
-                    [torch.eye(D) - torch.outer(w, w) for w in wn])
+                # P_orths = torch.stack(
+                    # [torch.eye(D) - torch.outer(w, w) for w in wn])
                 # feat_align = 
                 # out_layers = within_over_across_class_mean_dist(feat, labels)
                 feat_aligned = wn @ feat.cpu().T + b.unsqueeze(dim=1)
