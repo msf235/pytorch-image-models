@@ -6,7 +6,6 @@ import argparse
 import itertools
 import numpy as np
 import torch
-import joblib
 import pandas as pd
 import seaborn as sbn
 from matplotlib import pyplot as plt
@@ -14,8 +13,6 @@ import train
 import neural_collapse_utils as utils
 import model_loader_utils as load_utils
 import neural_collapse_exps as exp
-import joblib
-from torch.multiprocessing import Process, Lock
 import torchvision.models.feature_extraction as fe
 import model_output_manager_hash as mom
 
@@ -454,16 +451,16 @@ def plot_over_layers(y):
 
 if __name__ == '__main__':
     fn = train.train
-    fn_par = joblib.delayed(fn)
     ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
+    ps_epoch0 = [exp.ps_resnet18_mnist] + [exp.ps_resnet18_cifar10]
     ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
     # ps_set3 = exp.ps_resnet18_cifar100_sgd + exp.ps_resnet18_cifar100_rmsprop
     # ps_set2 = exp.ps_resnet18_cifar10_sgd
     # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
-    # ps_all = ps_set1 + ps_set2
+    ps_all = ps_set1 + ps_set2
     # ps_all = ps_set3
     # ps_all = exp.ps_resnet18_mnist_sgd
-    ps_all = ps_set1
+    # ps_all = ps_set1
     # ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
     # run_num=1
     # print(run_num)
@@ -486,14 +483,19 @@ if __name__ == '__main__':
     # print(run_num)
     # run_num=1
     print('run_num:', run_num)
-    # ps = ps_all[run_num-1]
+    ps = ps_all[run_num-1]
     # fn(ps)
     # print("done.")
     # ps = ps_all[0]
     # df = get_compressions_over_layers(ps, [0, -1])
-    # df = get_compressions_over_layers(ps, [0, -1], projection='s',
-                                      # # device='cpu')
-                                      # device='cuda')
+    # df = get_compressions_over_layers(ps, [-1], projection='s',
+                                      # device='cpu')
+                                      # # device='cuda')
+    df = get_compressions_over_layers(ps_epoch0[0], [0], projection='s',
+                                      device='cpu')
+    df = get_compressions_over_layers(ps_epoch0[1], [0], projection='s',
+                                      device='cpu')
+    sys.exit()
     # df = get_compressions_over_layers_batch(ps_all, [0, -1], projection='s',
                                       # # device='cpu')
                                       # device='cuda')
