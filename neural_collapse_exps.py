@@ -28,7 +28,7 @@ core_params = dict(
     interpolation='', train_interpolation='',
     checkpoint_every=10, checkpoint_first=10, resume=True,
     workers=1,
-    no_prefetcher=True, device='cpu',
+    # no_prefetcher=True, device='cpu',
 )
 
 ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist',
@@ -37,6 +37,9 @@ ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist',
 
 ps_cifar10 = dict(core_params, data_dir='data', dataset='torch/cifar10',
                   num_classes=10, img_size=32)
+
+ps_cifar100 = dict(core_params, data_dir='data', dataset='torch/cifar100',
+                  num_classes=100, img_size=32)
 
 ps_imagenet = dict(core_params,
     data_dir='/n/pehlevan_lab/Everyone/imagenet/ILSVRC/Data/CLS-LOC',
@@ -110,6 +113,21 @@ ps_resnet18_cifar10_noisy_sgd = [
 ]
 ps_resnet18_cifar10_sgd_rmsprop_comb = [
     dict(ps_resnet18_cifar10, **d) for d in ps_sgd_rmsprop_comb_list
+]
+
+ps_resnet18_cifar100 = dict(ps_cifar100, model='resnet18')
+
+ps_resnet18_cifar100_sgd = [
+    dict(ps_resnet18_cifar100, **d) for d in ps_sgd_list
+]
+ps_resnet18_cifar100_rmsprop = [
+    dict(ps_resnet18_cifar100, **d) for d in ps_rmsprop_list
+]
+ps_resnet18_cifar100_noisy_sgd = [
+    dict(ps_resnet18_cifar100, **d) for d in ps_noisy_sgd_list
+]
+ps_resnet18_cifar100_sgd_rmsprop_comb = [
+    dict(ps_resnet18_cifar100, **d) for d in ps_sgd_rmsprop_comb_list
 ]
 
 ps_resnet152_imagenet = dict(ps_imagenet, model='resnet152')
