@@ -104,7 +104,8 @@ def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
             feature_dict[layer_key] = layer_key
             layer_id_conv.append(node_range[layer_id])
             nodes_filt.append(nodes[layer_id])
-    feat_extractor = fe.create_feature_extractor(model, return_nodes=feature_dict)
+    feat_extractor = fe.create_feature_extractor(model,
+                                                 return_nodes=feature_dict)
     # compression_train = utils.get_compressions_projected(
         # feat_extractor, loader_train, run_dir, n_batches)
     dists = utils.get_dists_projected(
@@ -238,8 +239,9 @@ def get_compressions_over_layers(param_dict, epochs_idx,
         for k1, layer_id in enumerate(layer_ids_k1):
             layer_name = layer_names_k1[k1]
             ct = compression[k1]
-            d = dict(epoch=epoch, compression=compression,
-                     compression_aligned=compression_aligned,
+            cta = compression_aligned[k1]
+            d = dict(epoch=epoch, compression=ct,
+                     compression_aligned=cta,
                      layer_idx=layer_id, layer_name=layer_name, mode=mode)
             d = {**d, **pd_mom}
             ds.append(d)
@@ -249,7 +251,21 @@ def get_compressions_over_layers(param_dict, epochs_idx,
     df['layer_idx'] = df['layer_idx'].astype(int)
     return df
 
-def plots_df(data, x, y, hue, style, row=None, col=None,
+def get_compressions_over_layers_batch(param_dict_list, epochs_idx,
+                                 layer_ids=slice(-1), n_batches=n_batches,
+                                 projection=None, n_samples=None, mode='val',
+                                 device='cpu'):
+    dfs = []
+    for param_dict in param_dict_list:
+        dfs.append(get_compressions_over_layers(param_dict, epochs_idx,
+                                 layer_ids, n_batches,
+                                 projection, n_samples, mode,
+                                 device)
+                  )
+    return pd.concat(dfs, ignore_index=True)
+
+
+def plots_df(data, x, y, hue=None, style=None, row=None, col=None,
              height=height_default, figname='fig.pdf'):
     fg = sbn.relplot(data=data, x=x, y=y, hue=hue, style=style, row=row,
                      col=col, kind='line', height=height)
@@ -299,19 +315,32 @@ if __name__ == '__main__':
     # breakpoint()
     # print(run_num)
     # run_num=1
-    print('run_num:', run_num)
-    ps = ps_all[run_num-1]
+    # print('run_num:', run_num)
+    # ps = ps_all[run_num-1]
     # fn(ps)
     # print("done.")
     # ps = ps_all[0]
     # df = get_compressions_over_layers(ps, [0, -1])
-    df = get_compressions_over_layers(ps, [0, -1], projection='s',
+    # for k1, ps in enumerate(exp.ps_resnet18_mnist_sgd):
+    # for k1, ps in enumerate(ps_set1):
+        # print(k1)
+        # df = get_compressions_over_layers(ps,
+                                          # [0, -1], projection='s',
+                                          # device='cpu')
+        
+    # breakpoint()
+    df = get_compressions_over_layers_batch(ps_set1,
+                                      [0, -1], projection='s',
                                       device='cpu')
-                                      # device='cuda')
-    df = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1],
+    # ps = exp.ps_resnet18_mnist_sgd[34]
+    # df = get_compressions_over_layers(ps,
+                                      # [0, -1], projection='s',
+                                      # device='cpu')
+                                      # # device='cuda')
+    # df = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1],
                                         # projection='s',
-                                        device='cpu')
-                                        # device='cuda')
+                                        # device='cpu')
+                                        # # device='cuda')
     # df = get_compressions_over_layers(ps, [0, -1])
     # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # fn(ps_all[run_num-1])
@@ -319,18 +348,60 @@ if __name__ == '__main__':
     # df = get_compressions_over_training(ps_set1, epochs_idx=[0, 5, 10, 20 -1])
     # df = get_compressions_over_training_batch(ps_set1, epochs_idx=[0, 5, 10, 20 -1],
                                         # projection='x')
-    # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum', 'mse_loss', 'opt',
-                 # 'weight_decay']
-    # dfn = df[plot_keys]
+    # %% 
+    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',
+                 'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
+                 'layer_name']
+    dfn = df[plot_keys]
     # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
-    # df1 = dfn[filt]
-    # plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
-             # col='momentum', figname='mnist_sgd.png')
-    # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop')
-    # df1 = dfn[filt]
-    # plots_df(df1, 'epoch', 'compression', 'weight_decay', style='mse_loss', row='mode',
-             # figname='mnist_rmsprop.png')
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum') \
+            & (dfn['mse_loss']==True) & \
+            (dfn['layer_name']=='global_pool.flatten')
+            # (dfn['drop']==0.0)
+    df1 = dfn[filt]
+    plots_df(df1, x='epoch', y='compression',
+             # style='weight_decay',
+             # hue='weight_decay',
+             hue='drop',
+             # hue='drop',
+             # row='mode',
+             # row='drop',
+             row='weight_decay',
+             col='momentum',
+             figname='plots/epochs/mnist_sgd_mse.png')
 
+    # %% 
+    breakpoint()
+    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',
+                 'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx']
+    dfn = df[plot_keys]
+    # filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum')
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum') \
+            & (dfn['mse_loss']==True) & ((dfn['epoch']==0) | (dfn['epoch']==350))
+    df1 = dfn[filt]
+    plots_df(df1, x='layer_idx', y='compression', style='weight_decay',
+             hue='drop', row='mode', col='momentum',
+             figname='plots/layers/mnist_sgd_mse.png')
+
+    breakpoint()
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='momentum') \
+            & (dfn['mse_loss']==False) & (dfn['layer_name']=='global_pool.flatten')
+
+    df1 = dfn[filt]
+    plots_df(df1, x='epoch', y='compression', hue='weight_decay', style='drop', row='mode',
+             col='momentum', figname='mnist_sgd_cce.png')
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop') \
+            & (dfn['mse_loss']==True)
+    df1 = dfn[filt]
+    plots_df(df1, 'epoch', 'compression', 'weight_decay', style='drop', row='mode',
+             figname='mnist_rmsprop_mse.png')
+    filt = (dfn['dataset']=='torch/mnist') & (dfn['opt']=='rmsprop') \
+            & (dfn['mse_loss']==False)
+    df1 = dfn[filt]
+    plots_df(df1, 'epoch', 'compression', 'weight_decay', style='drop', row='mode',
+             figname='mnist_rmsprop_cce.png')
+
+    
     # filt = (dfn['dataset']=='torch/cifar10') & (dfn['opt']=='momentum')
     # df1 = dfn[filt]
     # plots_df(df1, 'epoch', 'compression', 'weight_decay', 'mse_loss', row='mode',
