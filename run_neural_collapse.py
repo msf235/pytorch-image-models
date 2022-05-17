@@ -27,7 +27,7 @@ parser_outer.add_argument('--run-num', type=int, default=None, metavar='N',
 args_outer, remaining_outer = parser_outer.parse_known_args()
 run_num = args_outer.run_num
 
-mem_cache = Path('.neural_collapse_cache')
+mem_cache = Path('.neural_collapse_small_filter_cache')
 # mem_cache = Path('.neural_collapse_cache_test')
 # mem_cache = Path('.neural_collapse_cache_old')
 memory = mom.Memory(location=mem_cache)
@@ -452,12 +452,17 @@ def plot_over_layers(y):
 if __name__ == '__main__':
     fn = train.train
     ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
-    ps_epoch0 = [exp.ps_resnet18_mnist] + [exp.ps_resnet18_cifar10]
     ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
+    # ps_set1 = exp.ps_resnet18_mnist_rmsprop
+    # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
+    # ps_set1 = exp.ps_resnet18_cifar10_rmsprop
+    # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
     # ps_set3 = exp.ps_resnet18_cifar100_sgd + exp.ps_resnet18_cifar100_rmsprop
     # ps_set2 = exp.ps_resnet18_cifar10_sgd
     # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
-    ps_all = ps_set1 + ps_set2
+    # ps_all = ps_set1 + ps_set2
+    ps_all = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_cifar10_sgd
+    # ps_all = ps_set1
     # ps_all = ps_set3
     # ps_all = exp.ps_resnet18_mnist_sgd
     # ps_all = ps_set1
@@ -484,17 +489,17 @@ if __name__ == '__main__':
     # run_num=1
     print('run_num:', run_num)
     ps = ps_all[run_num-1]
-    # fn(ps)
-    # print("done.")
+    fn(ps)
+    print("done.")
     # ps = ps_all[0]
     # df = get_compressions_over_layers(ps, [0, -1])
     # df = get_compressions_over_layers(ps, [-1], projection='s',
                                       # device='cpu')
-                                      # # device='cuda')
-    df = get_compressions_over_layers(ps_epoch0[0], [0], projection='s',
-                                      device='cpu')
-    df = get_compressions_over_layers(ps_epoch0[1], [0], projection='s',
-                                      device='cpu')
+                                      # device='cuda')
+    # df = get_compressions_over_layers(ps_epoch0[0], [0], projection='s',
+                                      # device='cpu')
+    # df = get_compressions_over_layers(ps_epoch0[1], [0], projection='s',
+                                      # device='cpu')
     sys.exit()
     # df = get_compressions_over_layers_batch(ps_all, [0, -1], projection='s',
                                       # # device='cpu')

@@ -12,9 +12,9 @@ def product_dict(dict_of_lists):
     return d
 
 if Path('/n').exists():
-    out = '/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse'
+    out = '/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_small_filter'
 else:
-    out = 'output_neural_collapse'
+    out = 'output_neural_collapse_small_filter'
 
 core_params = dict(
     output=out,
@@ -27,8 +27,8 @@ core_params = dict(
     batch_size=128, weight_decay=0, momentum=0,
     interpolation='', train_interpolation='',
     checkpoint_every=10, checkpoint_first=10, resume=True,
-    workers=1,
-    no_prefetcher=True, device='cpu',
+    workers=1, small_filter=True,
+    # no_prefetcher=True, device='cpu',
 )
 
 ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist',
@@ -47,19 +47,34 @@ ps_imagenet = dict(core_params,
 
 ps_sgd = dict(
     opt=('momentum',),
-    lr=(0.0184,),
+    # lr=(0.0184,),
+    lr=(0.005,),
     mse_loss=(False, True),
     momentum=(0, .4, .9),
     weight_decay=(0, 5e-4, 1e-3, 1e-2),
 )
 ps_sgd2 = dict(
     opt=('momentum',),
-    lr=(0.0184,),
+    # lr=(0.0184,),
+    lr=(0.005,),
     mse_loss=(False, True),
     momentum=(0, .4, .9),
-    drop=(.2, .4),
+    drop=(.2,),
+    # drop_block=(.2,),
 )
-ps_sgd_list = product_dict(ps_sgd) + product_dict(ps_sgd2)
+ps_sgd3 = dict(
+    opt=('momentum',),
+    # lr=(0.0184,),
+    lr=(0.005,),
+    mse_loss=(False, True),
+    momentum=(0, .4, .9),
+    drop=(.4,),
+    # drop_block=(.4,),
+)
+ps_sgd_list = (product_dict(ps_sgd) + product_dict(ps_sgd2) +
+               product_dict(ps_sgd3))
+# ps_sgd_list = (product_dict(ps_sgd) + product_dict(ps_sgd2) +
+               # product_dict(ps_sgd3))
 # ps_sgd_list = product_dict(ps_sgd2)
 ps_rmsprop = dict(
     opt=('rmsprop',),
@@ -71,9 +86,20 @@ ps_rmsprop2 = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
     mse_loss=(False, True),
-    drop=(.2, .4),
+    drop=(.2,),
+    # drop_block=(.2,),
 )
-ps_rmsprop_list = product_dict(ps_rmsprop) + product_dict(ps_rmsprop2)
+ps_rmsprop3 = dict(
+    opt=('rmsprop',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    drop=(.4,),
+    # drop_block=(.4,),
+)
+ps_rmsprop_list = (product_dict(ps_rmsprop) +
+                   product_dict(ps_rmsprop2) +
+                   product_dict(ps_rmsprop3))
+
 # ps_rmsprop_list = product_dict(ps_rmsprop2)
 
 ps_noisy_sgd = dict(

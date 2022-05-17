@@ -121,6 +121,8 @@ parser.add_argument('--img-size', type=int, default=None, metavar='N',
                     help='Image patch size (default: None => model default)')
 parser.add_argument('--input-size', default=None, nargs=3, type=int,
                     metavar='N N N', help='Input all image dimensions (d h w, e.g. --input-size 3 224 224), uses model default if empty')
+parser.add_argument('--small-filter', action='store_true', default=False,
+                    help='Use small first filter (default: False)')
 parser.add_argument('--crop-pct', default=None, type=float,
                     metavar='N', help='Input image center crop percent (for validation only)')
 parser.add_argument('--mean', type=float, nargs='+', default=None, metavar='MEAN',
@@ -371,7 +373,7 @@ def train(args_set_dict):
     del args_mom['output']
     del args_mom['experiment']
     del args_mom['device']
-    args_mom['no_prefetcher'] = False
+    del args_mom['no_prefetcher']
     # args_mom['torchscript'] = False
 
     for key, val in args_mom.items():
@@ -453,6 +455,10 @@ def train(args_set_dict):
         checkpoint_path=args.initial_checkpoint,
         in_chans=in_chans
     )
+    if args.small_filter:
+        model.conv1 = nn.Conv2d(in_chans, model.conv1.weight.shape[0], 3, 1, 1,
+                                bias=False)
+        model.maxpool = nn.MaxPool2d(kernel_size=1, stride=1, padding=0)
     if args.num_classes is None:
         assert hasattr(model, 'num_classes'), 'Model must have `num_classes` attr if not set on cmd line/config.'
         args.num_classes = model.num_classes  # FIXME handle model default vs config num_classes more elegantly
