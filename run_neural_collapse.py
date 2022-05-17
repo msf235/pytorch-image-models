@@ -6,6 +6,8 @@ import argparse
 import itertools
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import pandas as pd
 import seaborn as sbn
 from matplotlib import pyplot as plt
@@ -115,6 +117,35 @@ def get_dists_projected(param_dict, epoch, layer_ids, n_batches=n_batches,
                  # d_across_aligned_ratio_avgs) = out
     return dists, layer_id_conv, nodes_filt
 
+
+def get_feat_ext(epoch, layer_ids, train_out):
+    model, loader_train, loader_val, run_dir, pd_mom = train_out
+    nodes, __ = fe.get_graph_node_names(model)
+    load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch,
+                                             device='cpu')
+    model.eval()
+    feature_dict = {}
+    node_range = list(range(len(nodes)))
+    node_range_dict = {key: val for key, val in zip(nodes, node_range)}
+    if isinstance(layer_ids, slice):
+        layer_ids = node_range[layer_ids]
+    layer_id_conv = []
+    nodes_filt = []
+    for layer_id in layer_ids:
+        if isinstance(layer_id, str):
+            if layer_id not in nodes:
+                raise ValueError("layer_id not valid.")
+            feature_dict[layer_id] = layer_id
+            layer_id_conv.append(node_range_dict[layer_id])
+            nodes_filt.append(layer_id)
+        elif isinstance(layer_id, int):
+            layer_key = nodes[layer_id]
+            feature_dict[layer_key] = layer_key
+            layer_id_conv.append(node_range[layer_id])
+            nodes_filt.append(nodes[layer_id])
+    feat_extractor = fe.create_feature_extractor(model,
+                                                 return_nodes=feature_dict)
+    return feat_extractor, layer_id_conv, nodes_filt
 
 # @memory.cache(ignore=['train_out'])
 # def get_compressions(param_dict, epoch, layer_ids, n_batches=n_batches,
@@ -295,8 +326,95 @@ def get_compressions_over_layers_batch(param_dict_list, epochs_idx,
     return pd.concat(dfs, ignore_index=True)
 
 
-def plots_df(data, x, y, 
-             height=height_default, aspect=1, figname='fig.pdf', **fig_kwargs):
+# @memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
+                      # 'param_dict.resume', 'param_dict.dataset_download',
+                      # 'param_dict.device', 'param_dict.no_prefetcher'])
+def get_pcs(param_dict, epochs_idx, layer_ids=[-1],
+            n_batches=n_batches, n_samples=None, mode='val',
+            device='cpu'):
+
+    train_out = train.train(param_dict)
+    model, loader_train, loader_val, run_dir, pd_mom = train_out
+    df = pd.DataFrame()
+    epochs = np.array(load_utils.get_epochs(run_dir))
+    if epochs_idx is not None:
+        epochs = epochs[epochs_idx]
+    ds = []
+    pcs_col = []
+    labels_col = []
+    for k1, epoch in enumerate(epochs):
+        if epoch == 0:
+            param_dict0 = param_dict.copy()
+            for key in exp.opt_params:
+                if key in param_dict0:
+                    del param_dict0[key]
+            param_dict0['epochs'] = 0
+            train_out0 = train.train(param_dict0)
+            # model, loader_train, loader_val, run_dir, pd_mom = train_out0
+            fe, layer_ids, layer_names = get_feat_ext(epoch, layer_ids, train_out0)
+            pcs, labels = utils.get_pcs(fe, loader_val, n_batches, device)
+        else:
+            fe, layer_ids, layer_names = get_feat_ext(epoch, layer_ids, train_out)
+            pcs, labels = utils.get_pcs(fe, loader_val, n_batches, device)
+        pcs_col.append(pcs)
+        labels_col.append(labels)
+    return pcs_col, labels_col
+
+@memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
+                      'param_dict.resume', 'param_dict.dataset_download',
+                      'param_dict.device', 'param_dict.no_prefetcher'])
+def get_acc_and_loss_over_training(param_dict, epochs_idx=slice(None),
+                          mode='val', device='cpu'):
+    train_out = train.train(param_dict)
+    model, loader_train, loader_val, run_dir, pd_mom = train_out
+    epochs = np.array(load_utils.get_epochs(run_dir))
+    validate_loss_fn = nn.CrossEntropyLoss()
+    criterion = nn.MSELoss()
+    def validate_loss_fn(out, target):
+        return criterion(out, F.one_hot(target,
+                                 num_classes=pd_mom['num_classes']).float())
+    if epochs_idx is not None:
+        epochs = epochs[epochs_idx]
+    ds = []
+    for k1, epoch in enumerate(epochs):
+        if epoch == 0:
+            param_dict0 = param_dict.copy()
+            for key in exp.opt_params:
+                if key in param_dict0:
+                    del param_dict0[key]
+            param_dict0['epochs'] = 0
+            train_out0 = train.train(param_dict0)
+            model0, loader_train0, loader_val0, run_dir0, pd_mom0 = train_out0
+            acc, loss = utils.get_acc_and_loss(model0, validate_loss_fn,
+                                               loader_val, device)
+            # sd = load_utils.load_model_from_epoch_and_dir(model0, run_dir0,
+                                                          # epoch)
+            # model, loader_train, loader_val, run_dir, pd_mom = train_out0
+        else:
+            # model, loader_train, loader_val, run_dir, pd_mom = train_out
+            load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
+            acc, loss = utils.get_acc_and_loss(model, validate_loss_fn,
+                                               loader_val, device)
+        d = {'epoch': epoch, 'accuracy': acc, 'loss': loss,
+         'mode': mode}
+        d = {**d, **pd_mom}
+        ds.append(d)
+    df = pd.DataFrame(ds)
+    df['mode'] = df['mode'].astype("category")
+    df['epoch'] = df['epoch'].astype(int)
+    return df
+
+
+def batch_fn(fn, param_dicts, *args, **kwargs):
+    dfs = []
+    for param_dict in param_dicts:
+        df.append(fn(param_dict, *args, **kwargs))
+    df = pd.concat(dfs, ignore_index=True)
+    return df
+
+
+def plots_df(data, x, y, height=height_default, aspect=1, figname='fig.pdf',
+             **fig_kwargs):
     fg = sbn.relplot(data=data, x=x, y=y, height=height, aspect=aspect,
                      **fig_kwargs, kind='line')
     for i, ax in enumerate(fg.fig.axes):   ## getting all axes of the fig object
@@ -316,21 +434,21 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
-def plot_over_epochs():
-    ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
-    ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
+def plot_over_epochs(y, df):
+    # ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
+    # ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
 
-    ps_all = ps_set1 + ps_set2
-    df = get_compressions_over_training_batch(ps_all, [0, 5, 10, 20, 300, -1],
-                                              projection='s',
-                                              device='cpu')
-                                              # device='cuda')
+    # ps_all = ps_set1 + ps_set2
+    # df = get_compressions_over_training_batch(ps_all, [0, 5, 10, 20, 300, -1],
+                                              # projection='s',
+                                              # device='cpu')
+                                              # # device='cuda')
 
-    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',
+    plot_keys = ['dataset', 'epoch', y, 'mode', 'momentum',
                  'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
                  'layer_name']
     dfn = df[plot_keys]
-    figdir = Path('plots/epochs')
+    figdir = Path(f'plots/{y}/epochs')
     figdir.mkdir(parents=True, exist_ok=True)
     def plot_dset(dset='torch/mnist'):
         dset_stripped = dset.split('/')[-1]
@@ -342,7 +460,7 @@ def plot_over_epochs():
                 (dfn['weight_decay']==0.0)
                )
         df1 = dfn[filt]
-        plots_df(df1, x='epoch', y='compression',
+        plots_df(df1, x='epoch', y=y,
                  hue='drop',
                  row='mse_loss',
                  col='momentum',
@@ -356,7 +474,7 @@ def plot_over_epochs():
                 (dfn['drop']==0.0)
                )
         df1 = dfn[filt]
-        plots_df(df1, x='epoch', y='compression',
+        plots_df(df1, x='epoch', y=y,
                  hue='weight_decay',
                  row='mse_loss',
                  col='momentum',
@@ -370,7 +488,7 @@ def plot_over_epochs():
                 (dfn['weight_decay']==0.0)
                )
         df1 = dfn[filt]
-        plots_df(df1, x='epoch', y='compression',
+        plots_df(df1, x='epoch', y=y,
                  hue='drop',
                  col='mse_loss',
                  figname=figdir/f'{dset_stripped}_rmsprop_drop.png')
@@ -383,7 +501,7 @@ def plot_over_epochs():
                 (dfn['drop']==0.0)
                )
         df1 = dfn[filt]
-        plots_df(df1, x='epoch', y='compression',
+        plots_df(df1, x='epoch', y=y,
                  hue='weight_decay',
                  col='mse_loss',
                  figname=figdir/f'{dset_stripped}_rmsprop_weight_decay.png')
@@ -570,6 +688,28 @@ if __name__ == '__main__':
     # df = get_compressions_over_training_batch(ps_all,
                                               # epochs_idx=[0, 5, 10, 20 -1],
                                               # projection='s')
+    # ps = ps_all[0]
+    ps = exp.ps_resnet18_cifar10_rmsprop[4]
+    for ps in ps_all:
+        df = get_acc_and_loss_over_training(ps, device='cuda')
+    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
+    plot_over_epochs('accuracy', df)
+    plot_over_epochs('loss', df)
+    plots_df(df, x='epoch', y='accuracy', figname='temp.pdf')
+    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',
+                 'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
+                 'layer_name']
+    dfn = df[plot_keys]
+    breakpoint()
+    pcs, labels = get_pcs(ps, [-1], [-1], 3)
+    pcs = pcs[0][0]
+    labels = labels[0]
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    ax.scatter(pcs[:,0], pcs[:,1], pcs[:,2], c=labels)
+    plt.show()
+    breakpoint()
+
     plot_over_epochs()
     plot_over_layers('compression')
     plot_over_layers('compression_aligned')
