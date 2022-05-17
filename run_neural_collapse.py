@@ -182,15 +182,17 @@ def get_feat_ext(epoch, layer_ids, train_out):
         # return compression_train, compression_val, layer_id_conv, nodes_filt
 
 
-def get_compressions_over_training(param_dict, epochs_idx=None, layer_id=-1,
+@memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
+                      'param_dict.resume', 'param_dict.dataset_download',
+                      'param_dict.device', 'param_dict.no_prefetcher'])
+def get_compressions_over_training(param_dict, epochs=None, layer_id=-1,
                                    n_batches=n_batches, projection=None,
                                    n_samples=None, mode='val',
                                    device='cpu'):
     train_out = train.train(param_dict)
     model, loader_train, loader_val, run_dir, pd_mom = train_out
-    epochs = np.array(load_utils.get_epochs(run_dir))
-    if epochs_idx is not None:
-        epochs = epochs[epochs_idx]
+    if epochs is None:
+        epochs = np.array(load_utils.get_epochs(run_dir))
     ds = []
     for k1, epoch in enumerate(epochs):
         if projection is not None:
@@ -236,13 +238,13 @@ def get_compressions_over_training(param_dict, epochs_idx=None, layer_id=-1,
 
 
 # @memory.cache
-def get_compressions_over_training_batch(param_dict_list, epochs_idx=None,
+def get_compressions_over_training_batch(param_dict_list, epochs=None,
                                          layer_id=-1, n_batches=n_batches,
                                          projection=None, n_samples=None,
                                          mode='val', device='cpu'):
     dfs = []
     for param_dict in param_dict_list:
-        dfs += [get_compressions_over_training(param_dict, epochs_idx,
+        dfs += [get_compressions_over_training(param_dict, epochs,
                                                layer_id, n_batches, projection,
                                                n_samples, mode, device)]
         
@@ -448,7 +450,7 @@ def plot_over_epochs(y, df):
                  'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
                  'layer_name']
     dfn = df[plot_keys]
-    figdir = Path(f'plots/{y}/epochs')
+    figdir = Path(f'plots/epochs/{y}')
     figdir.mkdir(parents=True, exist_ok=True)
     def plot_dset(dset='torch/mnist'):
         dset_stripped = dset.split('/')[-1]
@@ -505,6 +507,20 @@ def plot_over_epochs(y, df):
                  hue='weight_decay',
                  col='mse_loss',
                  figname=figdir/f'{dset_stripped}_rmsprop_weight_decay.png')
+        filt = (
+                (dfn['dataset']==dset) &
+                # (dfn['opt']=='rmsprop') &
+                # (dfn['layer_name']=='global_pool.flatten') &
+                # (dfn['layer_name']=='fc') &
+                (dfn['drop']==0.0) &
+                (dfn['weight_decay']==0.0)
+               )
+        df1 = dfn[filt]
+        plots_df(df1, x='epoch', y=y,
+                 hue='opt',
+                 col='momentum',
+                 row='mse_loss',
+                 figname=figdir/f'{dset_stripped}_opt_comp.png')
         
     plot_dset('torch/mnist')
     plot_dset('torch/cifar10')
@@ -613,6 +629,20 @@ def plot_over_layers(y):
                  height=2,
                  aspect=4,
                  figname=figdir/f'{dset_stripped}_rmsprop_weight_decay.png')
+        # filt = (
+                # (dfn['dataset']==dset) &
+                # # (dfn['opt']=='rmsprop') &
+                # # (dfn['layer_name']=='global_pool.flatten') &
+                # # (dfn['layer_name']=='fc') &
+                # (dfn['drop']==0.0)
+                # (dfn['weight_decay']==0.0)
+               # )
+        # df1 = dfn[filt]
+        # plots_df(df1, x='epoch', y=y,
+                 # hue='opt',
+                 # col='momentum',
+                 # row='mse_loss',
+                 # figname=figdir/f'{dset_stripped}_opt_comp.png')
     
     plot_dset('torch/mnist')
     plot_dset('torch/cifar10')
@@ -654,8 +684,9 @@ if __name__ == '__main__':
     # print(run_num)
     # run_num=1
     # print('run_num:', run_num)
-    # ps = ps_all[run_num-1]
-    # fn(ps)
+    ps = ps_all[run_num-1]
+    breakpoint()
+    fn(ps)
     # sys.exit()
     # print("done.")
     # ps = ps_all[0]
@@ -689,26 +720,37 @@ if __name__ == '__main__':
                                               # epochs_idx=[0, 5, 10, 20 -1],
                                               # projection='s')
     # ps = ps_all[0]
-    ps = exp.ps_resnet18_cifar10_rmsprop[4]
-    for ps in ps_all:
-        df = get_acc_and_loss_over_training(ps, device='cuda')
-    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
-    plot_over_epochs('accuracy', df)
-    plot_over_epochs('loss', df)
-    plots_df(df, x='epoch', y='accuracy', figname='temp.pdf')
-    plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',
-                 'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
-                 'layer_name']
-    dfn = df[plot_keys]
-    breakpoint()
-    pcs, labels = get_pcs(ps, [-1], [-1], 3)
-    pcs = pcs[0][0]
-    labels = labels[0]
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    ax.scatter(pcs[:,0], pcs[:,1], pcs[:,2], c=labels)
-    plt.show()
-    breakpoint()
+    # ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
+    # ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
+
+    # # ps_all = ps_set1
+    # ps_all = ps_set2
+    # df = get_compressions_over_training_batch(ps_all, [0, 5, 10, 20, 300, -1],
+                                              # projection='s',
+                                              # device='cpu')
+                                              # # device='cuda')
+    # plot_over_epochs('compression', df)
+    # sys.exit()
+    # ps = exp.ps_resnet18_cifar10_rmsprop[4]
+    # for ps in ps_all:
+        # df = get_acc_and_loss_over_training(ps, device='cuda')
+    # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
+    # plot_over_epochs('accuracy', df)
+    # plot_over_epochs('loss', df)
+    # plots_df(df, x='epoch', y='accuracy', figname='temp.pdf')
+    # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',
+                 # 'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
+                 # 'layer_name']
+    # dfn = df[plot_keys]
+    # breakpoint()
+    # pcs, labels = get_pcs(ps, [-1], [-1], 3)
+    # pcs = pcs[0][0]
+    # labels = labels[0]
+    # fig = plt.figure()
+    # ax = plt.axes(projection='3d')
+    # ax.scatter(pcs[:,0], pcs[:,1], pcs[:,2], c=labels)
+    # plt.show()
+    # breakpoint()
 
     plot_over_epochs()
     plot_over_layers('compression')

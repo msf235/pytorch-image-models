@@ -33,7 +33,7 @@ core_params = dict(
     interpolation='', train_interpolation='',
     checkpoint_every=10, checkpoint_first=10, resume=True,
     workers=1,
-    # no_prefetcher=True, device='cpu',
+    no_prefetcher=True, device='cpu',
 )
 
 ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist',
@@ -69,13 +69,15 @@ ps_sgd_list = product_dict(ps_sgd) + product_dict(ps_sgd2)
 ps_rmsprop = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
-    mse_loss=(False, True),
+    # mse_loss=(False, True),
+    mse_loss=(False,),
     weight_decay=(0, 5e-4, 1e-3, 1e-2),
 )
 ps_rmsprop2 = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
-    mse_loss=(False, True),
+    # mse_loss=(False, True),
+    mse_loss=(False,),
     drop=(.2, .4),
 )
 ps_rmsprop_list = product_dict(ps_rmsprop) + product_dict(ps_rmsprop2)
