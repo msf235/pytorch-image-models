@@ -82,27 +82,43 @@ for ps in ps_sgd:
 ps_rmsprop = []
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0184/2,),
+    lr=(0.0184/4,),
     mse_loss=(True,),
     weight_decay=(0, 5e-4, 1e-3, 1e-2),
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0679/2,),
+    lr=(0.0679/4,),
     mse_loss=(False,),
     weight_decay=(0, 5e-4, 1e-3, 1e-2),
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0184/2,),
+    lr=(0.0184/4,),
     mse_loss=(True,),
-    drop=(.2, .4),
+    drop=(.2,),
+    drop_block=(.2,),
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0679/2,),
+    lr=(0.0184/4,),
+    mse_loss=(True,),
+    drop=(.4,),
+    drop_block=(.4,),
+))
+ps_rmsprop.append(dict(
+    opt=('rmsprop',),
+    lr=(0.0679/4,),
     mse_loss=(False,),
-    drop=(.2, .4),
+    drop=(.2,),
+    drop_block=(.2,),
+))
+ps_rmsprop.append(dict(
+    opt=('rmsprop',),
+    lr=(0.0679/4,),
+    mse_loss=(False,),
+    drop=(.4,),
+    drop_block=(.4,),
 ))
 ps_rmsprop_list = []
 for ps in ps_rmsprop:
