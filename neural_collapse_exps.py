@@ -45,62 +45,69 @@ ps_imagenet = dict(core_params,
     data_dir='/n/pehlevan_lab/Everyone/imagenet/ILSVRC/Data/CLS-LOC',
     dataset='imagenet')
 
-ps_sgd = dict(
-    opt=('momentum',),
-    # lr=(0.0184,),
-    lr=(0.005,),
-    mse_loss=(False, True),
-    momentum=(0, .4, .9),
-    weight_decay=(0, 5e-4, 1e-3, 1e-2),
-)
-ps_sgd2 = dict(
-    opt=('momentum',),
-    # lr=(0.0184,),
-    lr=(0.005,),
-    mse_loss=(False, True),
-    momentum=(0, .4, .9),
-    drop=(.2,),
-    # drop_block=(.2,),
-)
-ps_sgd3 = dict(
-    opt=('momentum',),
-    # lr=(0.0184,),
-    lr=(0.005,),
-    mse_loss=(False, True),
-    momentum=(0, .4, .9),
-    drop=(.4,),
-    # drop_block=(.4,),
-)
-ps_sgd_list = (product_dict(ps_sgd) + product_dict(ps_sgd2) +
-               product_dict(ps_sgd3))
-# ps_sgd_list = (product_dict(ps_sgd) + product_dict(ps_sgd2) +
-               # product_dict(ps_sgd3))
-# ps_sgd_list = product_dict(ps_sgd2)
-ps_rmsprop = dict(
-    opt=('rmsprop',),
-    lr=(0.0184,),
-    mse_loss=(False, True),
-    weight_decay=(0, 5e-4, 1e-3, 1e-2),
-)
-ps_rmsprop2 = dict(
-    opt=('rmsprop',),
-    lr=(0.0184,),
-    mse_loss=(False, True),
-    drop=(.2,),
-    # drop_block=(.2,),
-)
-ps_rmsprop3 = dict(
-    opt=('rmsprop',),
-    lr=(0.0184,),
-    mse_loss=(False, True),
-    drop=(.4,),
-    # drop_block=(.4,),
-)
-ps_rmsprop_list = (product_dict(ps_rmsprop) +
-                   product_dict(ps_rmsprop2) +
-                   product_dict(ps_rmsprop3))
 
-# ps_rmsprop_list = product_dict(ps_rmsprop2)
+ps_sgd = []
+ps_sgd.append(dict(
+    opt=('momentum',),
+    lr=(0.0184,),
+    mse_loss=(True,),
+    momentum=(0, .4, .9),
+    weight_decay=(0, 5e-4, 1e-3, 1e-2),
+))
+ps_sgd.append(dict(
+    opt=('momentum',),
+    lr=(0.0679,),
+    mse_loss=(False,),
+    momentum=(0, .4, .9),
+    weight_decay=(0, 5e-4, 1e-3, 1e-2),
+))
+ps_sgd.append(dict(
+    opt=('momentum',),
+    lr=(0.0184,),
+    mse_loss=(True,),
+    momentum=(0, .4, .9),
+    drop=(.2, .4),
+))
+ps_sgd.append(dict(
+    opt=('momentum',),
+    lr=(0.0679,),
+    mse_loss=(False,),
+    momentum=(0, .4, .9),
+    drop=(.2, .4),
+))
+ps_sgd_list = []
+for ps in ps_sgd:
+    ps_sgd_list += product_dict(ps)
+# ps_sgd_list = product_dict(ps_sgd2)
+ps_rmsprop = []
+ps_rmsprop.append(dict(
+    opt=('rmsprop',),
+    lr=(0.0184/2,),
+    mse_loss=(True,),
+    weight_decay=(0, 5e-4, 1e-3, 1e-2),
+))
+ps_rmsprop.append(dict(
+    opt=('rmsprop',),
+    lr=(0.0679/2,),
+    mse_loss=(False,),
+    weight_decay=(0, 5e-4, 1e-3, 1e-2),
+))
+ps_rmsprop.append(dict(
+    opt=('rmsprop',),
+    lr=(0.0184/2,),
+    mse_loss=(True,),
+    drop=(.2, .4),
+))
+ps_rmsprop.append(dict(
+    opt=('rmsprop',),
+    lr=(0.0679/2,),
+    mse_loss=(False,),
+    drop=(.2, .4),
+))
+ps_rmsprop_list = []
+for ps in ps_rmsprop:
+    ps_rmsprop_list += product_dict(ps)
+
 
 ps_noisy_sgd = dict(
     opt=('noisy_sgd',),

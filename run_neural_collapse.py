@@ -460,8 +460,8 @@ if __name__ == '__main__':
     # ps_set3 = exp.ps_resnet18_cifar100_sgd + exp.ps_resnet18_cifar100_rmsprop
     # ps_set2 = exp.ps_resnet18_cifar10_sgd
     # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
-    # ps_all = ps_set1 + ps_set2
-    ps_all = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_cifar10_sgd
+    ps_all = ps_set1 + ps_set2
+    # ps_all = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_cifar10_sgd
     # ps_all = ps_set1
     # ps_all = ps_set3
     # ps_all = exp.ps_resnet18_mnist_sgd
