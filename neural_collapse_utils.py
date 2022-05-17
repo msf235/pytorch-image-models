@@ -234,6 +234,7 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                         torch.diag(ds_aligned_ratio)).item())
                     ds_across_aligned_ratio.append(
                         (torch.sum(torch.triu(ds_aligned_ratio, 1))/(m*(m-1)/2)).item())
+                    
                 toc1 = time.time()
                 tdiff_proj_class.append(toc1-tic1)
                 # print(f"Finished computing projected classifications in",

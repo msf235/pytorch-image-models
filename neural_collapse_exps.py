@@ -12,10 +12,15 @@ def product_dict(dict_of_lists):
     return d
 
 if Path('/n').exists():
+    # out = '/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_small_filter'
     out = '/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse'
 else:
+    # out = 'output_neural_collapse_small_filter'
     out = 'output_neural_collapse'
 
+opt_params = ['opt', 'lr', 'mse_loss', 'momentum', 'weight_decay', 'drop',
+              # 'drop_block',
+             ]
 core_params = dict(
     output=out,
     # output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_backup',

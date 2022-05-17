@@ -466,7 +466,8 @@ def train(args_set_dict):
         print(
             f'Model {safe_model_name(args.model)} created, param count:{sum([m.numel() for m in model.parameters()])}')
 
-    data_config = resolve_data_config(vars(args), model=model, verbose=args.local_rank == 0)
+    # data_config = resolve_data_config(vars(args), model=model, verbose=args.local_rank == 0)
+    data_config = resolve_data_config(vars(args), model=model, verbose=False)
 
     # setup augmentation batch splits for contrastive loss or split bn
     num_aug_splits = 0
