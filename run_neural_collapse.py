@@ -721,8 +721,8 @@ if __name__ == '__main__':
     # df = get_compressions_over_training(ps_all[run_num-1], layer_id=-2,
                   # epochs=[0, 5, 300, 350], projection='s', device='cpu')
     # plot_over_epochs('compression', df)
-    print(run_num)
-    df = get_acc_and_loss_over_training(ps_all[run_num-1], device='cpu')
+    # print(run_num)
+    # df = get_acc_and_loss_over_training(ps_all[run_num-1], device='cpu')
     # df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
                                       # projection='s', device='cpu')
     # for k1, ps in enumerate(ps_all):
@@ -731,14 +731,14 @@ if __name__ == '__main__':
                                           # projection='s', device='cpu')
     # # plot_over_epochs('accuracy', df)
     # # plot_over_epochs('loss', df)
-    sys.exit()
+    # sys.exit()
     # df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
                   # epochs=[0, 5, 300, 350], projection='s', device='cpu')
     # plot_over_epochs('compression', df)
-    # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
-    # plot_over_epochs('accuracy', df)
-    # plot_over_epochs('loss', df)
-    # sys.exit()
+    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
+    plot_over_epochs('accuracy', df)
+    plot_over_epochs('loss', df)
+    sys.exit()
     # breakpoint()
     # plots_df(df, x='epoch', y='accuracy', figname='temp.pdf')
     # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',
