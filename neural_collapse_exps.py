@@ -17,7 +17,7 @@ else:
     out = 'output_neural_collapse_small_filter'
 
 opt_params = ['opt', 'lr', 'mse_loss', 'momentum', 'weight_decay', 'drop',
-              # 'drop_block',
+              'drop_block',
              ]
 core_params = dict(
     output=out,
