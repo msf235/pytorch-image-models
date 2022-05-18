@@ -59,6 +59,7 @@ def load_model(model, filename, optimizer=None, learning_scheduler=None,
     model.load_state_dict(model_state_info['state_dict'])
     if optimizer is not None:
         optimizer.load_state_dict(model_state_info['optimizer'])
+    return model_state_info
     # if learning_scheduler is not None:
         # learning_scheduler.load_state_dict(model_state_info['learning_scheduler_state_dict'])
 
