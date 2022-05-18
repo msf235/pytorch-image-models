@@ -204,11 +204,11 @@ def get_compressions_over_training(param_dict, epochs=None, layer_id=-1,
                 param_dict0['epochs'] = 0
                 train_out0 = train.train(param_dict0)
                 # model, loader_train, loader_val, run_dir, pd_mom = train_out0
-                out = get_dists_projected(param_dict0, epoch, [-1],
+                out = get_dists_projected(param_dict0, epoch, [layer_id],
                                           n_batches, n_samples, 100, mode,
                                           train_out0, device)
             else:
-                out = get_dists_projected(param_dict, epoch, [-1],
+                out = get_dists_projected(param_dict, epoch, [layer_id],
                                           n_batches, n_samples, 100, mode,
                                           train_out, device)
             dists, layer_id_k1, name_k1 = out
@@ -470,7 +470,6 @@ def plot_over_epochs(y, df):
                  row='mse_loss',
                  col='momentum',
                  figname=figdir/f'{dset_stripped}_sgd_drop.png')
-        breakpoint()
 
         filt = (
                 (dfn['dataset']==dset) &
@@ -743,8 +742,8 @@ if __name__ == '__main__':
     # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
     # plot_over_epochs('accuracy', df)
     # plot_over_epochs('loss', df)
-    df = batch_fn(get_compressions_over_training, ps_all, projection='s',
-                  device='cpu')
+    df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
+                  epochs=[0, 5, 300, 350], projection='s', device='cpu')
     plot_over_epochs('compression', df)
     sys.exit()
     # breakpoint()
