@@ -341,9 +341,47 @@ def get_pcs(param_dict, epochs_idx, layer_ids=[-2],
         labels_col.append(labels)
     return pcs_col, labels_col
 
+
 @memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
                       'param_dict.resume', 'param_dict.dataset_download',
                       'param_dict.device', 'param_dict.no_prefetcher'])
+def get_acc_and_loss(param_dict, epoch, mode='val', device='cpu'):
+    train_out = train.train(param_dict)
+    model, loader_train, loader_val, run_dir, pd_mom = train_out
+    epochs = np.array(load_utils.get_epochs(run_dir))
+    validate_loss_fn = nn.CrossEntropyLoss()
+    criterion = nn.MSELoss()
+    def validate_loss_fn(out, target):
+        return criterion(out, F.one_hot(target,
+                                 num_classes=pd_mom['num_classes']).float())
+    if epoch == 0:
+        param_dict0 = param_dict.copy()
+        for key in exp.opt_params:
+            if key in param_dict0:
+                del param_dict0[key]
+        param_dict0['epochs'] = 0
+        train_out0 = train.train(param_dict0)
+        model0, loader_train0, loader_val0, run_dir0, pd_mom0 = train_out0
+        acc, loss = utils.get_acc_and_loss(model0, validate_loss_fn,
+                                           loader_val, device)
+        # sd = load_utils.load_model_from_epoch_and_dir(model0, run_dir0,
+                                                      # epoch)
+        # model, loader_train, loader_val, run_dir, pd_mom = train_out0
+    else:
+        # model, loader_train, loader_val, run_dir, pd_mom = train_out
+        load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch,
+                                                 device=device)
+        acc, loss = utils.get_acc_and_loss(model, validate_loss_fn,
+                                           loader_val, device)
+    d = {'epoch': epoch, 'accuracy': acc, 'loss': loss,
+     'mode': mode}
+    d = {**d, **pd_mom}
+    df = pd.DataFrame(d, index=[0])
+    df['mode'] = df['mode'].astype("category")
+    df['epoch'] = df['epoch'].astype(int)
+    return df
+
+
 def get_acc_and_loss_over_training(param_dict, epochs_idx=slice(None),
                           mode='val', device='cpu'):
     train_out = train.train(param_dict)
@@ -356,30 +394,11 @@ def get_acc_and_loss_over_training(param_dict, epochs_idx=slice(None),
                                  num_classes=pd_mom['num_classes']).float())
     if epochs_idx is not None:
         epochs = epochs[epochs_idx]
-    ds = []
+    dfs = []
     for k1, epoch in enumerate(epochs):
-        if epoch == 0:
-            param_dict0 = param_dict.copy()
-            for key in exp.opt_params:
-                if key in param_dict0:
-                    del param_dict0[key]
-            param_dict0['epochs'] = 0
-            train_out0 = train.train(param_dict0)
-            model0, loader_train0, loader_val0, run_dir0, pd_mom0 = train_out0
-            acc, loss = utils.get_acc_and_loss(model0, validate_loss_fn,
-                                               loader_val, device)
-            # sd = load_utils.load_model_from_epoch_and_dir(model0, run_dir0,
-                                                          # epoch)
-            # model, loader_train, loader_val, run_dir, pd_mom = train_out0
-        else:
-            # model, loader_train, loader_val, run_dir, pd_mom = train_out
-            load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch)
-            acc, loss = utils.get_acc_and_loss(model, validate_loss_fn,
-                                               loader_val, device)
-        d = {'epoch': epoch, 'accuracy': acc, 'loss': loss,
-         'mode': mode}
-        d = {**d, **pd_mom}
-        ds.append(d)
+        print(epoch)
+        df = get_acc_and_loss(param_dict, epoch, mode, device)
+        dfs.append(df)
     df = pd.DataFrame(ds)
     df['mode'] = df['mode'].astype("category")
     df['epoch'] = df['epoch'].astype(int)
@@ -721,10 +740,11 @@ if __name__ == '__main__':
     # df = get_compressions_over_training(ps_all[run_num-1], layer_id=-2,
                   # epochs=[0, 5, 300, 350], projection='s', device='cpu')
     # plot_over_epochs('compression', df)
-    # print(run_num)
-    # df = get_acc_and_loss_over_training(ps_all[run_num-1], device='cpu')
-    # df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
-                                      # projection='s', device='cpu')
+    print(run_num)
+    # df = get_acc_and_loss_over_training(ps_all[run_num-1],
+                                        # epochs_idx=slice(1,None), device='cuda')
+    df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
+                                      projection='s', device='cpu')
     # for k1, ps in enumerate(ps_all):
         # print(k1+1)
         # df = get_compressions_over_layers(ps, [0], n_batches=10,
@@ -735,9 +755,9 @@ if __name__ == '__main__':
     # df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
                   # epochs=[0, 5, 300, 350], projection='s', device='cpu')
     # plot_over_epochs('compression', df)
-    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
-    plot_over_epochs('accuracy', df)
-    plot_over_epochs('loss', df)
+    # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
+    # plot_over_epochs('accuracy', df)
+    # plot_over_epochs('loss', df)
     sys.exit()
     # breakpoint()
     # plots_df(df, x='epoch', y='accuracy', figname='temp.pdf')

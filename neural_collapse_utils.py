@@ -152,6 +152,7 @@ def get_acc_and_loss(model, loss_fn, loader, device):
     losses = []
     with torch.no_grad():
         for k1, (inpdata, labels) in enumerate(loader):
+            print('input', k1+1, '/', len(loader))
             inpdata = inpdata.to(device)
             labels = labels.to(device)
             out = model(inpdata)
