@@ -182,9 +182,9 @@ def get_feat_ext(epoch, layer_ids, train_out):
         # return compression_train, compression_val, layer_id_conv, nodes_filt
 
 
-@memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
-                      'param_dict.resume', 'param_dict.dataset_download',
-                      'param_dict.device', 'param_dict.no_prefetcher'])
+# @memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
+                      # 'param_dict.resume', 'param_dict.dataset_download',
+                      # 'param_dict.device', 'param_dict.no_prefetcher'])
 def get_compressions_over_training(param_dict, epochs=None, layer_id=-1,
                                    n_batches=n_batches, projection=None,
                                    n_samples=None, mode='val',
@@ -410,7 +410,7 @@ def get_acc_and_loss_over_training(param_dict, epochs_idx=slice(None),
 def batch_fn(fn, param_dicts, *args, **kwargs):
     dfs = []
     for param_dict in param_dicts:
-        df.append(fn(param_dict, *args, **kwargs))
+        dfs.append(fn(param_dict, *args, **kwargs))
     df = pd.concat(dfs, ignore_index=True)
     return df
 
@@ -446,17 +446,20 @@ def plot_over_epochs(y, df):
                                               # device='cpu')
                                               # # device='cuda')
 
-    plot_keys = ['dataset', 'epoch', y, 'mode', 'momentum',
+    plot_keys = {'dataset', 'epoch', y, 'mode', 'momentum',
                  'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
-                 'layer_name']
+                 'layer_name'}
+    plot_keys = list(plot_keys.intersection(df.columns))
     dfn = df[plot_keys]
+    dfn.loc[dfn['opt']=='rmsprop','momentum'] = 'rmsprop'
+    dfn = dfn.drop(columns='opt')
     figdir = Path(f'plots/epochs/{y}')
     figdir.mkdir(parents=True, exist_ok=True)
     def plot_dset(dset='torch/mnist'):
         dset_stripped = dset.split('/')[-1]
         filt = (
                 (dfn['dataset']==dset) &
-                (dfn['opt']=='momentum') &
+                # (dfn['opt']=='momentum') &
                 # (dfn['layer_name']=='global_pool.flatten') &
                 # (dfn['layer_name']=='fc') &
                 (dfn['weight_decay']==0.0)
@@ -467,10 +470,11 @@ def plot_over_epochs(y, df):
                  row='mse_loss',
                  col='momentum',
                  figname=figdir/f'{dset_stripped}_sgd_drop.png')
+        breakpoint()
 
         filt = (
                 (dfn['dataset']==dset) &
-                (dfn['opt']=='momentum') &
+                # (dfn['opt']=='momentum') &
                 # (dfn['layer_name']=='global_pool.flatten') &
                 # (dfn['layer_name']=='fc') &
                 (dfn['drop']==0.0)
@@ -484,7 +488,7 @@ def plot_over_epochs(y, df):
 
         filt = (
                 (dfn['dataset']==dset) &
-                (dfn['opt']=='rmsprop') &
+                # (dfn['opt']=='rmsprop') &
                 # (dfn['layer_name']=='global_pool.flatten') &
                 # (dfn['layer_name']=='fc') &
                 (dfn['weight_decay']==0.0)
@@ -492,12 +496,13 @@ def plot_over_epochs(y, df):
         df1 = dfn[filt]
         plots_df(df1, x='epoch', y=y,
                  hue='drop',
-                 col='mse_loss',
+                 row='mse_loss',
+                 col='momentum',
                  figname=figdir/f'{dset_stripped}_rmsprop_drop.png')
 
         filt = (
                 (dfn['dataset']==dset) &
-                (dfn['opt']=='rmsprop') &
+                # (dfn['opt']=='rmsprop') &
                 # (dfn['layer_name']=='global_pool.flatten') &
                 # (dfn['layer_name']=='fc') &
                 (dfn['drop']==0.0)
@@ -505,7 +510,8 @@ def plot_over_epochs(y, df):
         df1 = dfn[filt]
         plots_df(df1, x='epoch', y=y,
                  hue='weight_decay',
-                 col='mse_loss',
+                 row='mse_loss',
+                 col='momentum',
                  figname=figdir/f'{dset_stripped}_rmsprop_weight_decay.png')
         filt = (
                 (dfn['dataset']==dset) &
@@ -517,7 +523,7 @@ def plot_over_epochs(y, df):
                )
         df1 = dfn[filt]
         plots_df(df1, x='epoch', y=y,
-                 hue='opt',
+                 # hue='opt',
                  col='momentum',
                  row='mse_loss',
                  figname=figdir/f'{dset_stripped}_opt_comp.png')
@@ -684,9 +690,9 @@ if __name__ == '__main__':
     # print(run_num)
     # run_num=1
     # print('run_num:', run_num)
-    ps = ps_all[run_num-1]
-    breakpoint()
-    fn(ps)
+    # ps = ps_all[run_num-1]
+    # breakpoint()
+    # fn(ps)
     # sys.exit()
     # print("done.")
     # ps = ps_all[0]
@@ -737,6 +743,11 @@ if __name__ == '__main__':
     # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
     # plot_over_epochs('accuracy', df)
     # plot_over_epochs('loss', df)
+    df = batch_fn(get_compressions_over_training, ps_all, projection='s',
+                  device='cpu')
+    plot_over_epochs('compression', df)
+    sys.exit()
+    # breakpoint()
     # plots_df(df, x='epoch', y='accuracy', figname='temp.pdf')
     # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',
                  # 'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
@@ -752,12 +763,13 @@ if __name__ == '__main__':
     # plt.show()
     # breakpoint()
 
-    plot_over_epochs()
+    # plot_over_epochs()
+    plot_over_epochs('compression')
+    sys.exit()
     plot_over_layers('compression')
     plot_over_layers('compression_aligned')
     plot_over_layers('compression_orth')
     plot_over_layers('compression_aligned_ratio')
-    sys.exit()
 # %% 
 # %% 
     breakpoint()

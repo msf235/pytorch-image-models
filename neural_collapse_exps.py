@@ -69,15 +69,15 @@ ps_sgd_list = product_dict(ps_sgd) + product_dict(ps_sgd2)
 ps_rmsprop = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
-    # mse_loss=(False, True),
-    mse_loss=(False,),
+    mse_loss=(False, True),
+    # mse_loss=(False,),
     weight_decay=(0, 5e-4, 1e-3, 1e-2),
 )
 ps_rmsprop2 = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
-    # mse_loss=(False, True),
-    mse_loss=(False,),
+    mse_loss=(False, True),
+    # mse_loss=(False,),
     drop=(.2, .4),
 )
 ps_rmsprop_list = product_dict(ps_rmsprop) + product_dict(ps_rmsprop2)
