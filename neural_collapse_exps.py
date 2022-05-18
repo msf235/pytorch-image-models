@@ -16,6 +16,9 @@ if Path('/n').exists():
 else:
     out = 'output_neural_collapse_small_filter'
 
+opt_params = ['opt', 'lr', 'mse_loss', 'momentum', 'weight_decay', 'drop',
+              # 'drop_block',
+             ]
 core_params = dict(
     output=out,
     # output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_backup',
@@ -124,7 +127,6 @@ ps_rmsprop.append(dict(
 ps_rmsprop_list = []
 for ps in ps_rmsprop:
     ps_rmsprop_list += product_dict(ps)
-
 
 ps_noisy_sgd = dict(
     opt=('noisy_sgd',),
