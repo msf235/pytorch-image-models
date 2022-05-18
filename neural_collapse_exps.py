@@ -79,43 +79,44 @@ ps_sgd_list = []
 for ps in ps_sgd:
     ps_sgd_list += product_dict(ps)
 # ps_sgd_list = product_dict(ps_sgd2)
+rmsprop_red_fact = 4
 ps_rmsprop = []
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0184/4,),
+    lr=(0.0184/rmsprop_red_fact,),
     mse_loss=(True,),
     weight_decay=(0, 5e-4, 1e-3, 1e-2),
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0679/4,),
+    lr=(0.0679/rmsprop_red_fact,),
     mse_loss=(False,),
     weight_decay=(0, 5e-4, 1e-3, 1e-2),
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0184/4,),
+    lr=(0.0184/rmsprop_red_fact,),
     mse_loss=(True,),
     drop=(.2,),
     drop_block=(.2,),
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0184/4,),
+    lr=(0.0184/rmsprop_red_fact,),
     mse_loss=(True,),
     drop=(.4,),
     drop_block=(.4,),
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0679/4,),
+    lr=(0.0679/rmsprop_red_fact,),
     mse_loss=(False,),
     drop=(.2,),
     drop_block=(.2,),
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
-    lr=(0.0679/4,),
+    lr=(0.0679/rmsprop_red_fact,),
     mse_loss=(False,),
     drop=(.4,),
     drop_block=(.4,),
