@@ -31,7 +31,7 @@ core_params = dict(
     interpolation='', train_interpolation='',
     checkpoint_every=10, checkpoint_first=10, resume=True,
     workers=1, small_filter=True,
-    # no_prefetcher=True, device='cpu',
+    no_prefetcher=True, device='cpu',
 )
 
 ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist',
@@ -83,6 +83,7 @@ for ps in ps_sgd:
     ps_sgd_list += product_dict(ps)
 # ps_sgd_list = product_dict(ps_sgd2)
 rmsprop_red_fact = 4
+# rmsprop_red_fact = 2
 ps_rmsprop = []
 ps_rmsprop.append(dict(
     opt=('rmsprop',),

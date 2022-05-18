@@ -202,8 +202,8 @@ def get_pcs(feat_extractor, loader, n_batches, device):
 
     return pcs_col, labels
 
-def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
-                        lin_class_its, device):
+def get_dists_projected(feat_extractor, loader, run_dir, n_batches_per,
+                        n_batches, lin_class_its, device):
     data_size = len(loader)
     feat_col = []
     labels_col = []
@@ -231,10 +231,10 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
             toc1 = time.time()
             print(f"Data loaded in {toc1-tic1}s", flush=True)
             tic = time.time()
-            print(k1, '/', len(loader), ' inputs')
+            print(k1+1, '/', n_batches, ' inputs')
             inpdata += [inpdata_batch.to(device)]
             labels += [labels_batch.to(device)]
-            if (k1 + 1) % n_batches == 0:
+            if (k1 + 1) % n_batches_per == 0:
                 inpdata = torch.cat(inpdata, dim=0)
                 labels = torch.cat(labels, dim=0)
                 # labels_pm1 = (2*labels - 1).cpu()
@@ -256,6 +256,7 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                 ds_within_aligned_ratio_layers = []
                 ds_across_aligned_ratio_layers = []
                 for k2, feat in enumerate(features_mc):
+                    print(f"Layer {k2}, feature: {feat.shape}")
                     # ticf = time.time()
                     tic1 = time.time()
                     ds = pairwise_class_dists(feat, labels)
@@ -330,6 +331,8 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
                 tdiff_d = []
                 tdiff_class = []
                 tdiff_proj_class = []
+            if (k1 + 1) % n_batches == 0:
+                break
             tic1 = time.time()
 
     ds_within_tot = zip(*ds_within_tot)
