@@ -32,6 +32,7 @@ run_num = args_outer.run_num
 mem_cache = Path('.neural_collapse_small_filter_cache')
 # mem_cache = Path('.neural_collapse_cache_test')
 # mem_cache = Path('.neural_collapse_cache_old')
+# memory = mom.Memory(location=mem_cache, rerun=True)
 memory = mom.Memory(location=mem_cache)
 # memory.clear()
 
@@ -743,6 +744,7 @@ if __name__ == '__main__':
     print(run_num)
     # df = get_acc_and_loss_over_training(ps_all[run_num-1],
                                         # epochs_idx=slice(1,None), device='cuda')
+    # sys.exit()
     # df = get_acc_and_loss_over_training(ps_all[run_num-1],
                                         # epochs_idx=[0], device='cuda')
     # df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
@@ -756,9 +758,13 @@ if __name__ == '__main__':
     # # plot_over_epochs('accuracy', df)
     # # plot_over_epochs('loss', df)
     # sys.exit()
-    df = batch_fn(get_compressions_over_layers, ps_all,
+    df = batch_fn(get_compressions_over_layers, ps_all[43:],
                   epochs_idx=[0, -1], n_batches=10, projection='s',
                   device='cpu')
+    # df = batch_fn(get_compressions_over_layers, ps_all,
+                  # epochs_idx=[-1], n_batches=10, projection='s',
+                  # device='cpu')
+    # plot_over_layers('compression', df)
     # get_compressions_over_layers(ps_all[run_num-1], epochs_idx=[-1],
                                 # projection='s', device='cpu')
     # df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,

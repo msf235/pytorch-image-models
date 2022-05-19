@@ -72,7 +72,7 @@ def param_converter(output_dir, filename_preface, param_dict_old, param_dict_new
     os.rename(old_dir.resolve(), new_dir.resolve())
 
 class Memory:
-    def __init__(self, location):
+    def __init__(self, location, rerun=False):
         """
         Parameters
         ----------
@@ -83,6 +83,7 @@ class Memory:
         """
         self.output_dir = Path(location)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.rerun = rerun
 
     def cache(self, func=None, ignore=None, verbose=1):
         """
@@ -143,6 +144,7 @@ class Memory:
             filename = f'cache.pkl'
             filepath = filedir/filename
             load = filepath.exists()
+            # if load and not self.rerun:
             if load:
                 try:
                     if verbose >= 1:
