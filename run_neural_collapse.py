@@ -743,8 +743,8 @@ if __name__ == '__main__':
     print(run_num)
     # df = get_acc_and_loss_over_training(ps_all[run_num-1],
                                         # epochs_idx=slice(1,None), device='cuda')
-    df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
-                                      projection='s', device='cpu')
+    # df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
+                                      # projection='s', device='cpu')
     # for k1, ps in enumerate(ps_all):
         # print(k1+1)
         # df = get_compressions_over_layers(ps, [0], n_batches=10,
@@ -755,7 +755,7 @@ if __name__ == '__main__':
     # df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
                   # epochs=[0, 5, 300, 350], projection='s', device='cpu')
     # plot_over_epochs('compression', df)
-    # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
+    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
     # plot_over_epochs('accuracy', df)
     # plot_over_epochs('loss', df)
     sys.exit()
