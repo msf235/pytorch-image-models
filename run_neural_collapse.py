@@ -399,7 +399,7 @@ def get_acc_and_loss_over_training(param_dict, epochs_idx=slice(None),
         print(epoch)
         df = get_acc_and_loss(param_dict, epoch, mode, device)
         dfs.append(df)
-    df = pd.DataFrame(ds)
+    df = pd.concat(dfs)
     df['mode'] = df['mode'].astype("category")
     df['epoch'] = df['epoch'].astype(int)
     return df
@@ -743,7 +743,11 @@ if __name__ == '__main__':
     print(run_num)
     # df = get_acc_and_loss_over_training(ps_all[run_num-1],
                                         # epochs_idx=slice(1,None), device='cuda')
+    # df = get_acc_and_loss_over_training(ps_all[run_num-1],
+                                        # epochs_idx=[0], device='cuda')
     # df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
+                                      # projection='s', device='cpu')
+    # df = get_compressions_over_layers(ps_all[run_num-1], [0], n_batches=10,
                                       # projection='s', device='cpu')
     # for k1, ps in enumerate(ps_all):
         # print(k1+1)
@@ -752,10 +756,15 @@ if __name__ == '__main__':
     # # plot_over_epochs('accuracy', df)
     # # plot_over_epochs('loss', df)
     # sys.exit()
+    df = batch_fn(get_compressions_over_layers, ps_all,
+                  epochs_idx=[0, -1], n_batches=10, projection='s',
+                  device='cpu')
+    # get_compressions_over_layers(ps_all[run_num-1], epochs_idx=[-1],
+                                # projection='s', device='cpu')
     # df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
                   # epochs=[0, 5, 300, 350], projection='s', device='cpu')
     # plot_over_epochs('compression', df)
-    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
+    # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
     # plot_over_epochs('accuracy', df)
     # plot_over_epochs('loss', df)
     sys.exit()
