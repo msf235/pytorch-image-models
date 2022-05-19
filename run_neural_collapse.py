@@ -193,6 +193,8 @@ def get_compressions_over_training(param_dict, epochs=None, layer_id=-2,
                                    device='cpu'):
     train_out = train.train(param_dict)
     model, loader_train, loader_val, run_dir, pd_mom = train_out
+    if n_batches is None:
+        n_batches = len(loader_val)
     if epochs is None:
         epochs = np.array(load_utils.get_epochs(run_dir))
     ds = []
@@ -530,26 +532,7 @@ def plot_over_epochs(y, df):
     plot_dset('torch/mnist')
     plot_dset('torch/cifar10')
 
-def plot_over_layers(y):
-    ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
-    ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
-
-    # ps_all = exp.ps_resnet18_mnist_sgd
-    # ps_all = ps_set1
-    ps_all = ps_set1 + ps_set2
-    # ps_all = exp.ps_resnet18_mnist_rmsprop
-    df = get_compressions_over_layers_batch(ps_all, [0, -1], projection='s',
-                                            # device='cpu'
-                                            device='cuda',
-                                           )
-    # df = get_compressions_over_layers_batch(ps_all, [0, -1], projection='s',
-                                      # device='cpu', layer_ids=slice(-1))
-    # df = get_compressions_over_layers_batch(ps_all, [0, -1], projection='s',
-                                      # device='cpu', layer_ids=slice(-1))
-    # dfe = get_compressions_over_layers_batch(ps_all, [0, -1], projection='s',
-                                      # device='cpu', layer_ids=[-1])
-                                      # device='cuda')
-    # df = pd.concat((df, dfe), ignore_index=True)
+def plot_over_layers(y, df):
 
     plot_keys = ['dataset', 'epoch', y,
                  'mode', 'momentum', 'mse_loss', 'opt', 'weight_decay', 'drop',
@@ -738,41 +721,56 @@ if __name__ == '__main__':
     # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
     # plot_over_epochs('accuracy', df)
     # plot_over_epochs('loss', df)
-    # df = get_compressions_over_training(ps_all[run_num-1], layer_id=-2,
-                  # epochs=[0, 5, 300, 350], projection='s', device='cpu')
-    # plot_over_epochs('compression', df)
+
     print(run_num)
-    # df = get_acc_and_loss_over_training(ps_all[run_num-1],
-                                        # epochs_idx=slice(1,None), device='cuda')
+    # df = get_compressions_over_training(ps_all[run_num-1], layer_id=-2,
+                  # epochs=[5, 300, 350], projection='s', device='cpu')
+    # df = get_compressions_over_training(ps_all[run_num-1], layer_id=-2,
+                  # epochs=[0], projection='s', device='cpu')
     # sys.exit()
+
+    # plot_over_epochs('compression', df)
+    # df = get_acc_and_loss_over_training(ps_all[run_num-1],
+                                        # epochs_idx=slice(1,None), device='cpu')
     # df = get_acc_and_loss_over_training(ps_all[run_num-1],
                                         # epochs_idx=[0], device='cuda')
     # df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
                                       # projection='s', device='cpu')
+    # sys.exit()
     # df = get_compressions_over_layers(ps_all[run_num-1], [0], n_batches=10,
                                       # projection='s', device='cpu')
     # for k1, ps in enumerate(ps_all):
         # print(k1+1)
         # df = get_compressions_over_layers(ps, [0], n_batches=10,
                                           # projection='s', device='cpu')
+    # df = get_compressions_over_training(ps_all[run_num-1],
+                                        # layer_id=-2,
+                                        # epochs=[5, 10, 20, 300, 350],
+                                        # # epochs=[0],
+                                        # projection='s',
+                                        # device='cpu')
+                                        # # device='cuda')
+    df = get_acc_and_loss_over_training(ps_all[run_num-1],
+                                        epochs_idx=slice(1,None), device='cpu')
+    # df = get_acc_and_loss_over_training(ps_all[run_num-1],
+                                        # epochs_idx=[0], device='cuda')
+    sys.exit()
     # # plot_over_epochs('accuracy', df)
     # # plot_over_epochs('loss', df)
-    # sys.exit()
-    df = batch_fn(get_compressions_over_layers, ps_all[43:],
-                  epochs_idx=[0, -1], n_batches=10, projection='s',
-                  device='cpu')
-    # df = batch_fn(get_compressions_over_layers, ps_all,
-                  # epochs_idx=[-1], n_batches=10, projection='s',
-                  # device='cpu')
     # plot_over_layers('compression', df)
     # get_compressions_over_layers(ps_all[run_num-1], epochs_idx=[-1],
                                 # projection='s', device='cpu')
-    # df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
-                  # epochs=[0, 5, 300, 350], projection='s', device='cpu')
-    # plot_over_epochs('compression', df)
-    # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
-    # plot_over_epochs('accuracy', df)
-    # plot_over_epochs('loss', df)
+    # sys.exit()
+    # df = batch_fn(get_compressions_over_layers, ps_all,
+                  # epochs_idx=[0, -1], n_batches=10, projection='s',
+                  # device='cpu')
+    # plot_over_layers('compression', df)
+    df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
+                  epochs=[0, 5, 300, 350], projection='s', device='cpu')
+    plot_over_epochs('compression', df)
+    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
+    plot_over_epochs('accuracy', df)
+    plot_over_epochs('loss', df)
     sys.exit()
     # breakpoint()
     # plots_df(df, x='epoch', y='accuracy', figname='temp.pdf')

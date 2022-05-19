@@ -101,22 +101,15 @@ ps_rmsprop.append(dict(
     # opt=('rmsprop',),
     # lr=(0.0184/rmsprop_red_fact,),
     # mse_loss=(True,),
-    # drop=(.2,),
-    # drop_block=(.2,),
-# ))
-# ps_rmsprop.append(dict(
-    # opt=('rmsprop',),
-    # lr=(0.0184/rmsprop_red_fact,),
-    # mse_loss=(True,),
-    # drop=(.4,),
-    # drop_block=(.4,),
+    # drop=(.2, .4),
+    # # drop_block=(.2,),
 # ))
 # ps_rmsprop.append(dict(
     # opt=('rmsprop',),
     # lr=(0.0679/rmsprop_red_fact,),
     # mse_loss=(False,),
-    # drop=(.2,),
-    # drop_block=(.2,),
+    # drop=(.2, .4),
+    # # drop_block=(.2,),
 # ))
 # ps_rmsprop.append(dict(
     # opt=('rmsprop',),
