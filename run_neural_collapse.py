@@ -35,7 +35,7 @@ memory.clear()
 
 n_batches = 2
 n_jobs = 12
-run_num = 9
+run_num = 10
 # parser = argparse.ArgumentParser()
 # parser.add_argument('n_jobs', type=int)
 # parser.add_argument('run_num', type=int)
