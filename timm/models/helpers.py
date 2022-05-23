@@ -81,19 +81,19 @@ def resume_checkpoint(model, checkpoint_path, optimizer=None, loss_scaler=None, 
     if os.path.isfile(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-            if log_info:
-                _logger.info('Restoring model state from checkpoint...')
+            # if log_info:
+                # _logger.info('Restoring model state from checkpoint...')
             state_dict = clean_state_dict(checkpoint['state_dict'])
             model.load_state_dict(state_dict)
 
             if optimizer is not None and 'optimizer' in checkpoint:
-                if log_info:
-                    _logger.info('Restoring optimizer state from checkpoint...')
+                # if log_info:
+                    # _logger.info('Restoring optimizer state from checkpoint...')
                 optimizer.load_state_dict(checkpoint['optimizer'])
 
             if loss_scaler is not None and loss_scaler.state_dict_key in checkpoint:
-                if log_info:
-                    _logger.info('Restoring AMP loss scaler state from checkpoint...')
+                # if log_info:
+                    # _logger.info('Restoring AMP loss scaler state from checkpoint...')
                 loss_scaler.load_state_dict(checkpoint[loss_scaler.state_dict_key])
 
             if 'epoch' in checkpoint:
@@ -101,15 +101,16 @@ def resume_checkpoint(model, checkpoint_path, optimizer=None, loss_scaler=None, 
                 if 'version' in checkpoint and checkpoint['version'] > 1:
                     resume_epoch += 1  # start at the next epoch, old checkpoints incremented before save
 
-            if log_info:
-                _logger.info("Loaded checkpoint '{}' (epoch {})".format(checkpoint_path, checkpoint['epoch']))
+            # if log_info:
+                # _logger.info("Loaded checkpoint '{}' (epoch {})".format(checkpoint_path, checkpoint['epoch']))
         else:
             model.load_state_dict(checkpoint)
-            if log_info:
-                _logger.info("Loaded checkpoint '{}'".format(checkpoint_path))
+            # if log_info:
+                # _logger.info("Loaded checkpoint '{}'".format(checkpoint_path))
         return resume_epoch
     else:
-        _logger.error("No checkpoint found at '{}'. Training from scratch.".format(checkpoint_path))
+        pass
+        # _logger.error("No checkpoint found at '{}'. Training from scratch.".format(checkpoint_path))
         # raise FileNotFoundError()
 
 

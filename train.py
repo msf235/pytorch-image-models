@@ -18,6 +18,7 @@ import argparse
 import time
 import yaml
 import os
+import sys
 import glob
 import logging
 from collections import OrderedDict
@@ -66,7 +67,6 @@ except ImportError:
 
 torch.backends.cudnn.benchmark = True
 _logger = logging.getLogger('train')
-_logger = logging.getLogger()
 # if (_logger.hasHandlers()):
     # _logger.handlers.clear()
 # _logger.propagate = False
@@ -99,6 +99,8 @@ parser.add_argument('--model', default='resnet50', type=str, metavar='MODEL',
                     help='Name of model to train (default: "resnet50"')
 parser.add_argument('--pretrained', action='store_true', default=False,
                     help='Start with pretrained version of specified network (if avail)')
+parser.add_argument('--device', default='cuda:0', type=str, metavar='MODEL',
+                    help='Device on which to train or load model (default: "cuda:0"')
 parser.add_argument('--initial-checkpoint', default='', type=str, metavar='PATH',
                     help='Initialize model from this checkpoint (default: none)')
 # parser.add_argument('--resume', default='', type=str, metavar='PATH',
@@ -259,6 +261,8 @@ parser.add_argument('--drop-path', type=float, default=None, metavar='PCT',
                     help='Drop path rate (default: None)')
 parser.add_argument('--drop-block', type=float, default=None, metavar='PCT',
                     help='Drop block rate (default: None)')
+parser.add_argument('--inj_noise_std', type=float, default=0.0, metavar='PCT',
+                    help='Injected noise standard deviation (default: 0.0)')
 
 # Batch norm parameters (only works with gen_efficientnet based models currently)
 parser.add_argument('--bn-momentum', type=float, default=None,
@@ -332,11 +336,14 @@ def _parse_args():
 
     # The main arg parser parses the rest of the args, the usual
     # defaults will have been overridden if config file specified.
-    args = parser.parse_args(remaining)
+    # args = parser.parse_args(remaining)
+    # args = parser.parse_known_args(remaining)
+    args = parser.parse_known_args()[0]
 
     # Cache the args as a text string to save them in the output dir later
     args_text = yaml.safe_dump(args.__dict__, default_flow_style=False)
     return args, args_text
+
 
 def main():
     args, args_text = _parse_args()
@@ -344,8 +351,9 @@ def main():
 
 
 def train(args_set_dict):
+    # if (_logger.hasHandlers()):
+        # _logger.handlers.clear()
     setup_default_logging()
-    # args, args_text = _parse_args()
     args, args_text = _parse_args()
     for key in args_set_dict:
         if not hasattr(args, key):
@@ -362,6 +370,9 @@ def train(args_set_dict):
     del args_mom['workers']
     del args_mom['output']
     del args_mom['experiment']
+    del args_mom['device']
+    args_mom['no_prefetcher'] = False
+    # args_mom['torchscript'] = False
 
     for key, val in args_mom.items():
         if hasattr(val, '__len__'):
@@ -371,14 +382,16 @@ def train(args_set_dict):
         if has_wandb:
             wandb.init(project=args.experiment, config=args)
         else: 
-            _logger.warning("You've requested to log metrics to wandb but package not found. "
-                            "Metrics not being logged to wandb, try `pip install wandb`")
+            # _logger.warning("You've requested to log metrics to wandb but package not found. "
+                            # "Metrics not being logged to wandb, try `pip install wandb`")
+            print("You've requested to log metrics to wandb but package not found. "
+                    "Metrics not being logged to wandb, try `pip install wandb`")
              
     args.prefetcher = not args.no_prefetcher
     args.distributed = False
     if 'WORLD_SIZE' in os.environ:
         args.distributed = int(os.environ['WORLD_SIZE']) > 1
-    args.device = 'cuda:0'
+    # args.device = 'cuda:0'
     args.world_size = 1
     args.rank = 0  # global rank
     if args.distributed:
@@ -387,10 +400,13 @@ def train(args_set_dict):
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
         args.world_size = torch.distributed.get_world_size()
         args.rank = torch.distributed.get_rank()
-        _logger.info('Training in distributed mode with multiple processes, 1 GPU per process. Process %d, total %d.'
+        # _logger.info('Training in distributed mode with multiple processes, 1 GPU per process. Process %d, total %d.'
+                     # % (args.rank, args.world_size))
+        print('Training in distributed mode with multiple processes, 1 GPU per process. Process %d, total %d.'
                      % (args.rank, args.world_size))
     else:
-        _logger.info('Training with a single process on 1 GPUs.')
+        # _logger.info('Training with a single process on 1 GPUs.')
+        print('Training with a single process on 1 GPUs.')
     assert args.rank >= 0
 
     # resolve AMP arguments based on PyTorch / Apex availability
@@ -406,7 +422,9 @@ def train(args_set_dict):
     elif args.native_amp and has_native_amp:
         use_amp = 'native'
     elif args.apex_amp or args.native_amp:
-        _logger.warning("Neither APEX or native Torch AMP is available, using float32. "
+        # _logger.warning("Neither APEX or native Torch AMP is available, using float32. "
+                        # "Install NVIDA apex or upgrade to PyTorch 1.6")
+        print("Neither APEX or native Torch AMP is available, using float32. "
                         "Install NVIDA apex or upgrade to PyTorch 1.6")
 
     random_seed(args.seed, args.rank)
@@ -427,6 +445,7 @@ def train(args_set_dict):
         drop_connect_rate=args.drop_connect,  # DEPRECATED, use drop_path
         drop_path_rate=args.drop_path,
         drop_block_rate=args.drop_block,
+        inj_noise_std=args.inj_noise_std,
         global_pool=args.gp,
         bn_momentum=args.bn_momentum,
         bn_eps=args.bn_eps,
@@ -442,10 +461,13 @@ def train(args_set_dict):
         model.set_grad_checkpointing(enable=True)
 
     if args.local_rank == 0:
-        _logger.info(
+        # _logger.info(
+            # f'Model {safe_model_name(args.model)} created, param count:{sum([m.numel() for m in model.parameters()])}')
+        print(
             f'Model {safe_model_name(args.model)} created, param count:{sum([m.numel() for m in model.parameters()])}')
 
-    data_config = resolve_data_config(vars(args), model=model, verbose=args.local_rank == 0)
+    # data_config = resolve_data_config(vars(args), model=model, verbose=args.local_rank == 0)
+    data_config = resolve_data_config(vars(args), model=model, verbose=False)
 
     # setup augmentation batch splits for contrastive loss or split bn
     num_aug_splits = 0
@@ -459,7 +481,8 @@ def train(args_set_dict):
         model = convert_splitbn_model(model, max(num_aug_splits, 2))
 
     # move model to GPU, enable channels last layout if set
-    model.cuda()
+    if args.device != 'cpu':
+        model.cuda()
     if args.channels_last:
         model = model.to(memory_format=torch.channels_last)
 
@@ -498,7 +521,8 @@ def train(args_set_dict):
             _logger.info('Using native Torch AMP. Training in mixed precision.')
     else:
         if args.local_rank == 0:
-            _logger.info('AMP not enabled. Training in float32.')
+            # _logger.info('AMP not enabled. Training in float32.')
+            print('AMP not enabled. Training in float32.')
 
 
     # optionally resume from a checkpoint
@@ -514,9 +538,10 @@ def train(args_set_dict):
     output_dir = get_outdir(args.output if args.output
                             else './output/train', exp_name)
     run_exists = mom.run_exists(args_mom, output_dir)
-    run_id = mom.get_run_hash(args_mom, output_dir)
+    run_id = mom.get_run_hash(args_mom)
     run_dir = Path(output_dir) / f"run_{run_id}/"
     run_dir.mkdir(exist_ok=True)
+
     if not args.resume:
         print()
         print("Training from scratch and saving output to:")
@@ -574,7 +599,8 @@ def train(args_set_dict):
         lr_scheduler.step(start_epoch)
 
     if args.local_rank == 0:
-        _logger.info('Scheduled epochs: {}'.format(num_epochs))
+        # _logger.info('Scheduled epochs: {}'.format(num_epochs))
+        print('Scheduled epochs: {}'.format(num_epochs))
 
     # create the train and eval datasets
     dataset_train = create_dataset(
@@ -641,6 +667,7 @@ def train(args_set_dict):
         pin_memory=args.pin_mem,
         use_multi_epochs_loader=args.use_multi_epochs_loader,
         worker_seeding=args.worker_seeding,
+        device=args.device,
     )
 
     loader_eval = create_loader(
@@ -657,6 +684,7 @@ def train(args_set_dict):
         distributed=args.distributed,
         crop_pct=data_config['crop_pct'],
         pin_memory=args.pin_mem,
+        device=args.device,
     )
 
     # setup loss function
@@ -704,12 +732,12 @@ def train(args_set_dict):
         with open(os.path.join(run_dir, 'args.yaml'), 'w') as f:
             f.write(args_text)
 
+    # ============= Training loop =================
     if args.checkpoint_first is not None:
         checkpoint_offset = args.checkpoint_first
     else:
         checkpoint_offset = 0
-    # ============= Training loop =================
-    if args.checkpoint_every is not None:
+    if args.checkpoint_every is not None and start_epoch==0:
         state_dict = get_state_dict(model)
         savedict = dict(epoch=0, arch=type(model).__name__.lower(),
                         state_dict=state_dict, optimizer=optimizer.state_dict(),
@@ -778,7 +806,9 @@ def train(args_set_dict):
     except KeyboardInterrupt:
         pass
     if best_metric is not None:
-        _logger.info(
+        # _logger.info(
+            # '*** Best metric: {0} (epoch {1})'.format(best_metric, best_epoch))
+        print(
             '*** Best metric: {0} (epoch {1})'.format(best_metric, best_epoch))
 
     return model, loader_train, loader_eval, run_dir, args_mom
@@ -809,7 +839,8 @@ def train_one_epoch(
         last_batch = batch_idx == last_idx
         data_time_m.update(time.time() - end)
         if not args.prefetcher:
-            input, target = input.cuda(), target.cuda()
+            if args.device != 'cpu':
+                input, target = input.cuda(), target.cuda()
             if mixup_fn is not None:
                 input, target = mixup_fn(input, target)
         if args.channels_last:
@@ -840,7 +871,8 @@ def train_one_epoch(
         if model_ema is not None:
             model_ema.update(model)
 
-        torch.cuda.synchronize()
+        if args.device != 'cpu':
+            torch.cuda.synchronize()
         num_updates += 1
         batch_time_m.update(time.time() - end)
         if last_batch or batch_idx % args.log_interval == 0:
@@ -852,7 +884,23 @@ def train_one_epoch(
                 losses_m.update(reduced_loss.item(), input.size(0))
 
             if args.local_rank == 0:
-                _logger.info(
+                # _logger.info(
+                    # 'Train: {} [{:>4d}/{} ({:>3.0f}%)]  '
+                    # 'Loss: {loss.val:#.4g} ({loss.avg:#.3g})  '
+                    # 'Time: {batch_time.val:.3f}s, {rate:>7.2f}/s  '
+                    # '({batch_time.avg:.3f}s, {rate_avg:>7.2f}/s)  '
+                    # 'LR: {lr:.3e}  '
+                    # 'Data: {data_time.val:.3f} ({data_time.avg:.3f})'.format(
+                        # epoch,
+                        # batch_idx, len(loader),
+                        # 100. * batch_idx / last_idx,
+                        # loss=losses_m,
+                        # batch_time=batch_time_m,
+                        # rate=input.size(0) * args.world_size / batch_time_m.val,
+                        # rate_avg=input.size(0) * args.world_size / batch_time_m.avg,
+                        # lr=lr,
+                        # data_time=data_time_m))
+                print(
                     'Train: {} [{:>4d}/{} ({:>3.0f}%)]  '
                     'Loss: {loss.val:#.4g} ({loss.avg:#.3g})  '
                     'Time: {batch_time.val:.3f}s, {rate:>7.2f}/s  '
@@ -942,7 +990,15 @@ def validate(model, loader, loss_fn, args, amp_autocast=suppress, log_suffix='')
             end = time.time()
             if args.local_rank == 0 and (last_batch or batch_idx % args.log_interval == 0):
                 log_name = 'Test' + log_suffix
-                _logger.info(
+                # _logger.info(
+                    # '{0}: [{1:>4d}/{2}]  '
+                    # 'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})  '
+                    # 'Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  '
+                    # 'Acc@1: {top1.val:>7.4f} ({top1.avg:>7.4f})  '
+                    # 'Acc@5: {top5.val:>7.4f} ({top5.avg:>7.4f})'.format(
+                        # log_name, batch_idx, last_idx, batch_time=batch_time_m,
+                        # loss=losses_m, top1=top1_m, top5=top5_m))
+                print(
                     '{0}: [{1:>4d}/{2}]  '
                     'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})  '
                     'Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  '

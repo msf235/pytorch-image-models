@@ -12,10 +12,15 @@ def product_dict(dict_of_lists):
     return d
 
 if Path('/n').exists():
+    # out = '/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_small_filter'
     out = '/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse'
 else:
+    # out = 'output_neural_collapse_small_filter'
     out = 'output_neural_collapse'
 
+opt_params = ['opt', 'lr', 'mse_loss', 'momentum', 'weight_decay', 'drop',
+              # 'drop_block',
+             ]
 core_params = dict(
     output=out,
     # output='/n/holyscratch01/pehlevan_lab/Lab/matthew/output_neural_collapse_backup',
@@ -28,6 +33,7 @@ core_params = dict(
     interpolation='', train_interpolation='',
     checkpoint_every=10, checkpoint_first=10, resume=True,
     workers=1,
+    no_prefetcher=True, device='cpu',
 )
 
 ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist',
@@ -37,24 +43,61 @@ ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist',
 ps_cifar10 = dict(core_params, data_dir='data', dataset='torch/cifar10',
                   num_classes=10, img_size=32)
 
+ps_cifar100 = dict(core_params, data_dir='data', dataset='torch/cifar100',
+                  num_classes=100, img_size=32)
+
 ps_imagenet = dict(core_params,
     data_dir='/n/pehlevan_lab/Everyone/imagenet/ILSVRC/Data/CLS-LOC',
-    dataset='imagenet', img_size=32)
+    dataset='imagenet')
 
 ps_sgd = dict(
     opt=('momentum',),
     lr=(0.0184,),
     mse_loss=(False, True),
     momentum=(0, .4, .9),
-    weight_decay=(0, 1e-4, 5e-4, 1e-3),
+    weight_decay=(0, 5e-4, 1e-3, 1e-2),
 )
-ps_sgd_list = product_dict(ps_sgd)
+ps_sgd2 = dict(
+    opt=('momentum',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    momentum=(0, .4, .9),
+    drop=(.2, .4),
+)
+ps_sgd_list = product_dict(ps_sgd) + product_dict(ps_sgd2)
+# ps_sgd_list = product_dict(ps_sgd2)
 ps_rmsprop = dict(
     opt=('rmsprop',),
     lr=(0.0184,),
     mse_loss=(False, True),
+    # mse_loss=(False,),
+    weight_decay=(0, 5e-4, 1e-3, 1e-2),
 )
-ps_rmsprop_list = product_dict(ps_rmsprop)
+ps_rmsprop2 = dict(
+    opt=('rmsprop',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    # mse_loss=(False,),
+    drop=(.2, .4),
+)
+ps_rmsprop_list = product_dict(ps_rmsprop) + product_dict(ps_rmsprop2)
+# ps_rmsprop_list = product_dict(ps_rmsprop2)
+
+ps_noisy_sgd = dict(
+    opt=('noisy_sgd',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    grad_noise=(.1, .4),
+)
+ps_noisy_sgd_list = product_dict(ps_noisy_sgd)
+
+ps_sgd_rmsprop_comb = dict(
+    opt=('sgd_rmsprop_comb',),
+    lr=(0.0184,),
+    mse_loss=(False, True),
+    sgd_rmsprop_prop=(.25, .5, .75),
+)
+ps_sgd_rmsprop_comb_list = product_dict(ps_sgd_rmsprop_comb)
 
 ps_resnet18_mnist = dict(ps_mnist, model='resnet18')
 ps_resnet18_mnist_sgd = [
@@ -72,12 +115,33 @@ ps_resnet18_cifar10_sgd = [
 ps_resnet18_cifar10_rmsprop = [
     dict(ps_resnet18_cifar10, **d) for d in ps_rmsprop_list
 ]
-
-ps_resnet18_imagenet = dict(ps_imagenet, model='resnet18')
-ps_resnet18_imagenet_sgd = [
-    dict(ps_resnet18_imagenet, **d) for d in ps_sgd_list
+ps_resnet18_cifar10_noisy_sgd = [
+    dict(ps_resnet18_cifar10, **d) for d in ps_noisy_sgd_list
 ]
-ps_resnet18_imagenet_rmsprop = [
-    dict(ps_resnet18_imagenet, **d) for d in ps_rmsprop_list
+ps_resnet18_cifar10_sgd_rmsprop_comb = [
+    dict(ps_resnet18_cifar10, **d) for d in ps_sgd_rmsprop_comb_list
+]
+
+ps_resnet18_cifar100 = dict(ps_cifar100, model='resnet18')
+
+ps_resnet18_cifar100_sgd = [
+    dict(ps_resnet18_cifar100, **d) for d in ps_sgd_list
+]
+ps_resnet18_cifar100_rmsprop = [
+    dict(ps_resnet18_cifar100, **d) for d in ps_rmsprop_list
+]
+ps_resnet18_cifar100_noisy_sgd = [
+    dict(ps_resnet18_cifar100, **d) for d in ps_noisy_sgd_list
+]
+ps_resnet18_cifar100_sgd_rmsprop_comb = [
+    dict(ps_resnet18_cifar100, **d) for d in ps_sgd_rmsprop_comb_list
+]
+
+ps_resnet152_imagenet = dict(ps_imagenet, model='resnet152')
+ps_resnet152_imagenet_sgd = [
+    dict(ps_resnet152_imagenet, **d) for d in ps_sgd_list
+]
+ps_resnet152_imagenet_rmsprop = [
+    dict(ps_resnet152_imagenet, **d) for d in ps_rmsprop_list
 ]
 

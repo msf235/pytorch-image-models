@@ -24,7 +24,8 @@ def get_epoch(savestr):
     epoch = int(parts[2])
     return epoch
 
-def load_model(model, filename, optimizer=None, learning_scheduler=None):
+def load_model(model, filename, optimizer=None, learning_scheduler=None,
+               device=None):
     """
     Load the given torch model from the given file. Loads the model by reference, so the passed in model is modified.
     An optimizer and learning_scheduler object can also be loaded if they were saved along with the model.
@@ -52,14 +53,15 @@ def load_model(model, filename, optimizer=None, learning_scheduler=None):
         returns -1.
     """
     try:
-        model_state_info = torch.load(filename)
+        model_state_info = torch.load(filename, map_location=device)
     except FileNotFoundError:
         return -1
-    model.load_state_dict(model_state_info['model_state_dict'])
+    model.load_state_dict(model_state_info['state_dict'])
     if optimizer is not None:
-        optimizer.load_state_dict(model_state_info['optimizer_state_dict'])
-    if learning_scheduler is not None:
-        learning_scheduler.load_state_dict(model_state_info['learning_scheduler_state_dict'])
+        optimizer.load_state_dict(model_state_info['optimizer'])
+    return model_state_info
+    # if learning_scheduler is not None:
+        # learning_scheduler.load_state_dict(model_state_info['learning_scheduler_state_dict'])
 
 def get_epochs(out_dir):
     """
@@ -128,7 +130,9 @@ def get_max_epoch(out_dir, require_save_zero=True):
     else:
         return False
 
-def load_model_from_epoch_and_dir(model, out_dir, epoch_num, save_num=0, optimizer=None, learning_scheduler=None):
+def load_model_from_epoch_and_dir(model, out_dir, epoch_num, save_num=0,
+                                  optimizer=None, learning_scheduler=None,
+                                  device=None):
     """
     Loads the model as it was on a specific epoch. Loads the model by reference, so the passed in model is modified.
 
@@ -151,8 +155,8 @@ def load_model_from_epoch_and_dir(model, out_dir, epoch_num, save_num=0, optimiz
     out_dir = Path(out_dir)
     if epoch_num == -1:
         epoch_num = get_max_epoch(out_dir)
-    filename = out_dir/checkpnt_str
-    return load_model(model, filename, optimizer, learning_scheduler)
+    filename = out_dir/(checkpnt_str.replace('*', str(epoch_num)))
+    return load_model(model, filename, optimizer, learning_scheduler, device)
 
 def load_model_mom(model, epoch, arg_dict, table_path, compare_exclude=[], optimizer=None, learning_scheduler=None):
     """

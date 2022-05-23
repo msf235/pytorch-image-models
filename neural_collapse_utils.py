@@ -1,10 +1,19 @@
 import timm
+import time
+from sklearn.svm import LinearSVC as Classifier
+from sklearn.exceptions import ConvergenceWarning
+import warnings
+warnings.filterwarnings("ignore", category=ConvergenceWarning)
+# from sklearn.linear_model import LogisticRegression as Classifier
 import torch
 from pathlib import Path
 from timm import data
 from timm import models
 from matplotlib import pyplot as plt
 from timm.models import create_model, safe_model_name, resume_checkpoint, load_checkpoint
+
+def vmean(v):
+    return sum(v) / len(v)
 
 def get_pcs_covariance(X, pcs, original_shape=True, return_extra=False):
     """
@@ -41,59 +50,319 @@ def get_pcs_covariance(X, pcs, original_shape=True, return_extra=False):
     else:
         return pca_proj
 
-def within_over_across_class_mean_dist(X, y, breakv=False):
-    cs = set(y.tolist())
+def pairwise_class_dists(X, y, breakv=False):
+    yl = y.tolist()
+    cs = set(yl)
     m = len(cs)
-    ds = torch.zeros(m,m)
-    for k1 in range(m):
-        for k2 in range(k1, m):
-            xk1 = X[y == k1]
+    ds = torch.zeros(m, m)
+    for k1, y1 in enumerate(cs):
+        for k2, y2 in enumerate(cs):
+            xk1 = X[y == y1]
             xk1 = xk1.reshape(1, xk1.shape[0], -1) 
-            xk2 = X[y == k2]
+            xk2 = X[y == y2]
             xk2 = xk2.reshape(1, xk2.shape[0], -1) 
             d = torch.cdist(xk1, xk2)[0]
             r1 = d.shape[0]
             r2 = d.shape[1]
             if k1 == k2:
-                ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
+                nu = r1*(r1-1)/2
+                ds[k1, k2] = torch.sum(torch.triu(d,1)) / nu
             else:
-                ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
-            # if ds[k1, k2] == torch.nan:
-                # breakpoint()
+                ds[k1, k2] = torch.mean(d)
+    return ds 
+
+# def within_over_across_class_mean_dist(X, y, breakv=False):
+    # cs = set(y.tolist())
+    # m = len(cs)
+    # ds = torch.zeros(m,m)
+    # for k1 in range(m):
+        # for k2 in range(k1, m):
+            # xk1 = X[y == k1]
+            # xk1 = xk1.reshape(1, xk1.shape[0], -1) 
+            # xk2 = X[y == k2]
+            # xk2 = xk2.reshape(1, xk2.shape[0], -1) 
+            # d = torch.cdist(xk1, xk2)[0]
+            # r1 = d.shape[0]
+            # r2 = d.shape[1]
+            # if k1 == k2:
+                # ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
+            # else:
+                # ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
+            # # if ds[k1, k2] == torch.nan:
+                # # breakpoint()
             
-    d_within = torch.nanmean(torch.diag(ds))
-    d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
+    # d_within = torch.nanmean(torch.diag(ds))
+    # d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
 
-    return d_within, d_across
+    # return d_within.item(), d_across.item()
 
-def get_compression(model, loader, run_dir, n_batches):
+
+# def get_compressions(feat_extractor, loader, run_dir, n_batches):
+    # data_size = len(loader)
+    # feat_col = []
+    # labels_col = []
+    # d_within = []
+    # d_across = []
+    # inpdata = []
+    # labels = []
+    # out_inputs = []
+    # within_inputs = []
+    # across_inputs = []
+    # print("Reminder to check layer orderings.")
+    # for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+        # inpdata += [inpdata_batch]
+        # labels += [labels_batch]
+        # if (k1 + 1) % n_batches == 0:
+            # inpdata = torch.cat(inpdata, dim=0)
+            # labels = torch.cat(labels, dim=0)
+            # # features = feat_extractor(inpdata)
+            # featt = feat_extractor(inpdata)
+            # features = featt.values()
+            # features = [feat.data.squeeze() for feat in features]
+            # breakv = k1 >= len(loader)-1
+            # out_layers = [within_over_across_class_mean_dist(feat, labels,
+                                                             # breakv=breakv) for
+                          # feat in features]
+            # within_layers = [o[0] for o in out_layers]
+            # across_layers = [o[1] for o in out_layers]
+            
+            # within_inputs += [within_layers]
+            # across_inputs += [across_layers]
+            # inpdata = []
+            # labels = []
+    # d_within = zip(*within_inputs)
+    # d_across = zip(*across_inputs)
+
+    # d_within_avgs = torch.tensor([vmean(d) for d in d_within])
+    # d_across_avgs = torch.tensor([vmean(d) for d in d_across])
+    # compression = d_within_avgs / d_across_avgs
+    # return compression
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    maxk = min(max(topk), output.size()[1])
+    batch_size = target.size(0)
+    _, pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.reshape(1, -1).expand_as(pred))
+    return [correct[:min(k, maxk)].reshape(-1).float().sum(0) * 100. / batch_size for k in topk]
+
+def get_acc_and_loss(model, loss_fn, loader, device):
+    accs = []
+    losses = []
+    with torch.no_grad():
+        for k1, (inpdata, labels) in enumerate(loader):
+            inpdata = inpdata.to(device)
+            labels = labels.to(device)
+            out = model(inpdata)
+            accs.append(accuracy(out, labels)[0].item())
+            losses.append(loss_fn(out, labels).item())
+    return vmean(accs), vmean(losses)
+        
+
+def get_pcs(feat_extractor, loader, n_batches, device):
+    data_size = len(loader)
+    pcs_col = []
+    inpdata = []
+    labels = []
+    with torch.no_grad():
+        for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+            print(k1+1, '/', len(loader))
+            # if breakout:
+                # break
+            tic = time.time()
+            print(k1, '/', len(loader), ' inputs')
+            inpdata += [inpdata_batch.to(device)]
+            labels += [labels_batch.to(device)]
+            if (k1 + 1) % n_batches == 0:
+                breakout = True
+                inpdata = torch.cat(inpdata, dim=0)
+                labels = torch.cat(labels, dim=0)
+                # labels_pm1 = (2*labels - 1).cpu()
+                # features = feat_extractor(inpdata)
+                featt = feat_extractor(inpdata)
+                # print(f"Features generated in {toc1-tic1}s", flush=True)
+                features = featt.values()
+                features = [feat.data.squeeze() for feat in features]
+                features_mc = [feat - torch.mean(feat, dim=0) for feat in features]
+                features_mc = [feat.reshape(feat.shape[0], -1).cpu() for feat in
+                               features_mc]
+                for k2, feat in enumerate(features_mc):
+                    # ticf = time.time()
+                    tic1 = time.time()
+                    U, s, V = torch.svd(feat)
+                    pcs_col.append(U[:, :3] * s[:3])
+                    toc1 = time.time()
+                    print(f'pcs compute time: {toc1-tic1}s')
+
+                break
+
+    toc = time.time()
+    print('time elapsed:', toc-tic)
+
+    return pcs_col, labels
+
+def get_dists_projected(feat_extractor, loader, run_dir, n_batches,
+                        lin_class_its, device):
     data_size = len(loader)
     feat_col = []
     labels_col = []
-    d_within = []
-    d_across = []
-    for k1, (inpdata, labels) in enumerate(loader):
-        features = model.forward_features(inpdata).data.squeeze()
-        feat_col += [features]
-        labels_col += [labels]
-        if (k1 + 1) % n_batches == 0:
-            feat_col = torch.cat(feat_col, dim=0)
-            labels_col = torch.cat(labels_col, dim=0)
-            if k1 >= len(loader)-1:
-                out = within_over_across_class_mean_dist(feat_col, labels_col,
-                                                         breakv=True)
-            out = within_over_across_class_mean_dist(feat_col, labels_col)
-            d_within += [out[0].item()]
-            d_across += [out[1].item()]
-            feat_col = []
-            labels_col = []
+    ds_within_tot = []
+    ds_across_tot = []
+    ds_within_aligned_tot = []
+    ds_across_aligned_tot = []
+    ds_within_aligned_ratio_tot = []
+    ds_across_aligned_ratio_tot = []
+    inpdata = []
+    labels = []
+    out_inputs = []
+    within_inputs = []
+    across_inputs = []
+    print("Reminder to check layer orderings.")
+    print("Loading data.")
+    tica = time.time()
+    tic1 = time.time()
+    tdiff_feat = []
+    tdiff_d = []
+    tdiff_class = []
+    tdiff_proj_class = []
+    with torch.no_grad():
+        for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+            toc1 = time.time()
+            print(f"Data loaded in {toc1-tic1}s", flush=True)
+            tic = time.time()
+            print(k1, '/', len(loader), ' inputs')
+            inpdata += [inpdata_batch.to(device)]
+            labels += [labels_batch.to(device)]
+            if (k1 + 1) % n_batches == 0:
+                inpdata = torch.cat(inpdata, dim=0)
+                labels = torch.cat(labels, dim=0)
+                # labels_pm1 = (2*labels - 1).cpu()
+                # features = feat_extractor(inpdata)
+                tic1 = time.time()
+                featt = feat_extractor(inpdata)
+                toc1 = time.time()
+                tdiff_feat.append(toc1-tic1)
+                # print(f"Features generated in {toc1-tic1}s", flush=True)
+                features = featt.values()
+                features = [feat.data.squeeze() for feat in features]
+                features_mc = [feat - torch.mean(feat, dim=0) for feat in features]
+                features_mc = [feat.reshape(feat.shape[0], -1).cpu() for feat in
+                               features_mc]
+                ds_within_layers = []
+                ds_across_layers = []
+                ds_within_aligned_layers = []
+                ds_across_aligned_layers = []
+                ds_within_aligned_ratio_layers = []
+                ds_across_aligned_ratio_layers = []
+                for k2, feat in enumerate(features_mc):
+                    # ticf = time.time()
+                    tic1 = time.time()
+                    ds = pairwise_class_dists(feat, labels)
+                    toc1 = time.time()
+                    tdiff_d.append(toc1-tic1)
+                    m = ds.shape[0]
+                    ds_within_layers.append(
+                        (torch.nanmean(torch.diag(ds))).item())
+                    ds_across_layers.append(
+                        (torch.sum(torch.triu(ds, 1))/((m-1)**2/2)).item())
+                    tic1 = time.time()
+                    classf = Classifier(max_iter=lin_class_its, C=10)
+                    classf.fit(feat.cpu().numpy(), labels.cpu().numpy())
+                    toc1 = time.time()
+                    tdiff_class.append(toc1-tic1)
+                    w = torch.tensor(classf.coef_, dtype=torch.float)
+                    b = torch.tensor(classf.intercept_, dtype=torch.float)
+                    wn = w / torch.norm(w, dim=1, keepdim=True)
+                    D = w.shape[1]
+                    # P_orths = torch.stack(
+                        # [torch.eye(D) - torch.outer(w, w) for w in wn])
+                    # feat_align = 
+                    # out_layers = within_over_across_class_mean_dist(feat, labels)
+                    feat_aligned = wn @ feat.cpu().T + b.unsqueeze(dim=1)
+                    ds_within_aligned = []
+                    ds_across_aligned = []
+                    ds_within_aligned_ratio = []
+                    ds_across_aligned_ratio = []
+                    # print(f"Computing projected classifications.", flush=True)
+                    tic1 = time.time()
+                    for k3 in range(m):
+                        ds_aligned = pairwise_class_dists(
+                            feat_aligned[k3], labels)
+                        ds_aligned_ratio = ds_aligned / ds
+                        ds_orth_ratio = 1 - ds_aligned_ratio
+                        ds_within_aligned.append(torch.nanmean(
+                            torch.diag(ds_aligned)).item())
+                        ds_across_aligned.append(
+                            (torch.sum(torch.triu(ds_aligned, 1))/(m*(m-1)/2)).item())
+                        ds_within_aligned_ratio.append(torch.nanmean(
+                            torch.diag(ds_aligned_ratio)).item())
+                        ds_across_aligned_ratio.append(
+                            (torch.sum(torch.triu(ds_aligned_ratio, 1))/(m*(m-1)/2)).item())
+                        
+                    toc1 = time.time()
+                    tdiff_proj_class.append(toc1-tic1)
+                    # print(f"Finished computing projected classifications in",
+                          # f"{toc1-tic1}s", flush=True)
+                    ds_within_aligned_layers.append(vmean(ds_within_aligned))
+                    ds_across_aligned_layers.append(vmean(ds_across_aligned))
+                    ds_within_aligned_ratio_layers.append(vmean(ds_within_aligned_ratio))
+                    ds_across_aligned_ratio_layers.append(vmean(ds_across_aligned_ratio))
+                    # tocf = time.time()
+                    # print(f"Time this layer: {tocf-ticf}")
 
-    d_within = sum(d_within) / len(d_within)
-    d_across = sum(d_across) / len(d_across)
-    compression = d_within / d_across
-    return compression
-    # return (d_within / d_across).item()
+                ds_within_tot.append(ds_within_layers)
+                ds_across_tot.append(ds_across_layers)
+                ds_within_aligned_tot.append(ds_within_aligned_layers)
+                ds_across_aligned_tot.append(ds_across_aligned_layers)
+                ds_within_aligned_ratio_tot.append(ds_within_aligned_ratio_layers)
+                ds_across_aligned_ratio_tot.append(ds_across_aligned_ratio_layers)
 
+                inpdata = []
+                labels = []
+                toc = time.time()
+                print('time elapsed:', toc-tic)
+                print('avg feature compute time:', vmean(tdiff_feat))
+                print('avg distance compute time:', vmean(tdiff_d))
+                print('avg classification compute time:', vmean(tdiff_class))
+                print('avg projected classification compute time:', vmean(tdiff_proj_class))
+                tdiff_feat = []
+                tdiff_d = []
+                tdiff_class = []
+                tdiff_proj_class = []
+            tic1 = time.time()
+
+    ds_within_tot = zip(*ds_within_tot)
+    ds_across_tot = zip(*ds_across_tot)
+    ds_within_aligned_tot = zip(*ds_within_aligned_tot)
+    ds_across_aligned_tot = zip(*ds_across_aligned_tot)
+    # d_within_orth_ratio_tot = 1 - ds_within_aligned_ratio_tot
+    # ds_across_orth_ratio_tot = 1 - ds_across_aligned_ratio_tot
+    ds_within_aligned_ratio_tot = zip(*ds_within_aligned_ratio_tot)
+    ds_across_aligned_ratio_tot = zip(*ds_across_aligned_ratio_tot)
+    # ds_within_orth_ratio_tot = zip(*ds_within_orth_ratio_tot)
+    # ds_across_orth_ratio_tot = zip(*ds_across_orth_ratio_tot)
+
+    ds_within_avgs = torch.tensor([vmean(d) for d in ds_within_tot])
+    ds_across_avgs = torch.tensor([vmean(d) for d in ds_across_tot])
+    ds_within_aligned_avgs = torch.tensor([vmean(d) for d in
+                                          ds_within_aligned_tot])
+    ds_across_aligned_avgs = torch.tensor([vmean(d) for d in
+                                          ds_across_aligned_tot])
+    ds_within_aligned_ratio_avgs = torch.tensor([vmean(d) for d in
+                                          ds_within_aligned_ratio_tot])
+    ds_across_aligned_ratio_avgs = torch.tensor([vmean(d) for d in
+                                          ds_across_aligned_ratio_tot])
+    # ds_within_orth_ratio_avgs = torch.tensor([vmean(d) for d in
+                                          # ds_orth_aligned_ratio_tot])
+    # ds_across_orth_ratio_avgs = torch.tensor([vmean(d) for d in
+                                          # ds_orth_aligned_ratio_tot])
+    # compression_avgs = ds_within_avgs / ds_across_avgs
+    # compression_aligned_ratio_avgs = d_within_aligned_ratio_tot / d_across_aligned_ratio_tot
+    # compression_orth_ratio_avgs = d_within_orth_ratio_tot / d_across_orth_ratio_tot 
+    return (ds_within_avgs, ds_across_avgs, ds_within_aligned_avgs,
+            ds_across_aligned_avgs, ds_within_aligned_ratio_avgs,
+            ds_across_aligned_ratio_avgs)
 # %% 
 # if __name__ == '__main__':
     
