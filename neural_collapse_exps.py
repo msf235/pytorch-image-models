@@ -82,7 +82,8 @@ ps_sgd_list = []
 for ps in ps_sgd:
     ps_sgd_list += product_dict(ps)
 # ps_sgd_list = product_dict(ps_sgd2)
-rmsprop_red_fact = 4
+# rmsprop_red_fact = 4
+rmsprop_red_fact = 10
 # rmsprop_red_fact = 2
 ps_rmsprop = []
 ps_rmsprop.append(dict(

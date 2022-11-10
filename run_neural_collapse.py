@@ -663,7 +663,7 @@ if __name__ == '__main__':
     # ps_set3 = exp.ps_resnet18_cifar100_sgd + exp.ps_resnet18_cifar100_rmsprop
     # ps_set2 = exp.ps_resnet18_cifar10_sgd
     # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
-    ps_all = ps_set1 + ps_set2
+    # ps_all = ps_set1 + ps_set2
     # ps_all = exp.ps_resnet18_mnist_rmsprop + exp.ps_resnet18_cifar10_rmsprop
     # ps_all = ps_set1
     # ps_all = exp.ps_resnet18_mnist_sgd
@@ -674,8 +674,9 @@ if __name__ == '__main__':
     # ps_chunks = list(chunks(ps_all, len(ps_all)//n_jobs))
     # print(run_num)
     # ps = ps_all[run_num-1]
-    # fn(ps)
-    # sys.exit()
+    ps = exp.ps_resnet18_cifar10_rmsprop[0]
+    fn(ps)
+    sys.exit()
     # df = get_compressions_over_layers(ps, [0, -1])
     # df2 = get_compressions_over_training(ps, epochs_idx=[0, 5, 10, 20 -1])
     # for ps in ps_set2:
