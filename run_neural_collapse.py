@@ -32,8 +32,8 @@ run_num = args_outer.run_num
 mem_cache = Path('.neural_collapse_small_filter_cache')
 # mem_cache = Path('.neural_collapse_cache_test')
 # mem_cache = Path('.neural_collapse_cache_old')
-# memory = mom.Memory(location=mem_cache, rerun=True)
-memory = mom.Memory(location=mem_cache)
+memory = mom.Memory(location=mem_cache, rerun=True)
+# memory = mom.Memory(location=mem_cache)
 # memory.clear()
 
 
@@ -81,6 +81,7 @@ def get_dists_projected(param_dict, epoch, layer_ids,
     if mode != 'val' or n_samples is not None:
         raise AttributeError('Not implemented yet')
     model, loader_train, loader_val, run_dir, pd_mom = train_out
+    # fe = model
     nodes, __ = fe.get_graph_node_names(model)
     load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch,
                                              device='cpu')
@@ -120,11 +121,11 @@ def get_dists_projected(param_dict, epoch, layer_ids,
     return dists, layer_id_conv, nodes_filt
 
 
-def get_feat_ext(epoch, layer_ids, train_out):
+def get_feat_ext(epoch, layer_ids, train_out, device):
     model, loader_train, loader_val, run_dir, pd_mom = train_out
     nodes, __ = fe.get_graph_node_names(model)
     load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch,
-                                             device='cpu')
+                                             device=device)
     model.eval()
     feature_dict = {}
     node_range = list(range(len(nodes)))
@@ -184,9 +185,9 @@ def get_feat_ext(epoch, layer_ids, train_out):
         # return compression_train, compression_val, layer_id_conv, nodes_filt
 
 
-# @memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
-                      # 'param_dict.resume', 'param_dict.dataset_download',
-                      # 'param_dict.device', 'param_dict.no_prefetcher'])
+@memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
+                      'param_dict.resume', 'param_dict.dataset_download',
+                      'param_dict.device', 'param_dict.no_prefetcher'])
 def get_compressions_over_training(param_dict, epochs=None, layer_id=-2,
                                    n_batches_per=n_batches_per, n_batches=None,
                                    projection=None, n_samples=None, mode='val',
@@ -242,6 +243,9 @@ def get_compressions_over_training(param_dict, epochs=None, layer_id=-2,
 
 
 
+@memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
+                      'param_dict.resume', 'param_dict.dataset_download',
+                      'param_dict.device', 'param_dict.no_prefetcher'])
 def get_compressions_over_layers(param_dict, epochs_idx,
                                  layer_ids=slice(None),
                                  n_batches_per=n_batches_per,
@@ -313,6 +317,9 @@ def get_compressions_over_layers(param_dict, epochs_idx,
 # @memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
                       # 'param_dict.resume', 'param_dict.dataset_download',
                       # 'param_dict.device', 'param_dict.no_prefetcher'])
+@memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
+                      'param_dict.resume', 'param_dict.dataset_download',
+                      'param_dict.device', 'param_dict.no_prefetcher'])
 def get_pcs(param_dict, epochs_idx, layer_ids=[-2],
             n_batches=n_batches_per, n_samples=None, mode='val',
             device='cpu'):
@@ -335,10 +342,12 @@ def get_pcs(param_dict, epochs_idx, layer_ids=[-2],
             param_dict0['epochs'] = 0
             train_out0 = train.train(param_dict0)
             # model, loader_train, loader_val, run_dir, pd_mom = train_out0
-            fe, layer_ids, layer_names = get_feat_ext(epoch, layer_ids, train_out0)
+            fe, layer_ids, layer_names = get_feat_ext(epoch, layer_ids,
+                                                      train_out0, device)
             pcs, labels = utils.get_pcs(fe, loader_val, n_batches, device)
         else:
-            fe, layer_ids, layer_names = get_feat_ext(epoch, layer_ids, train_out)
+            fe, layer_ids, layer_names = get_feat_ext(epoch, layer_ids,
+                                                      train_out, device)
             pcs, labels = utils.get_pcs(fe, loader_val, n_batches, device)
         pcs_col.append(pcs)
         labels_col.append(labels)
@@ -351,6 +360,7 @@ def get_pcs(param_dict, epochs_idx, layer_ids=[-2],
 def get_acc_and_loss(param_dict, epoch, mode='val', device='cpu'):
     train_out = train.train(param_dict)
     model, loader_train, loader_val, run_dir, pd_mom = train_out
+    model.eval()
     epochs = np.array(load_utils.get_epochs(run_dir))
     validate_loss_fn = nn.CrossEntropyLoss()
     criterion = nn.MSELoss()
@@ -365,6 +375,7 @@ def get_acc_and_loss(param_dict, epoch, mode='val', device='cpu'):
         param_dict0['epochs'] = 0
         train_out0 = train.train(param_dict0)
         model0, loader_train0, loader_val0, run_dir0, pd_mom0 = train_out0
+        model.eval()
         acc, loss = utils.get_acc_and_loss(model0, validate_loss_fn,
                                            loader_val, device)
         # sd = load_utils.load_model_from_epoch_and_dir(model0, run_dir0,
@@ -374,6 +385,7 @@ def get_acc_and_loss(param_dict, epoch, mode='val', device='cpu'):
         # model, loader_train, loader_val, run_dir, pd_mom = train_out
         load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch,
                                                  device=device)
+        model.eval()
         acc, loss = utils.get_acc_and_loss(model, validate_loss_fn,
                                            loader_val, device)
     d = {'epoch': epoch, 'accuracy': acc, 'loss': loss,
@@ -385,6 +397,9 @@ def get_acc_and_loss(param_dict, epoch, mode='val', device='cpu'):
     return df
 
 
+@memory.cache(ignore=['device', 'param_dict.output', 'param_dict.workers',
+                      'param_dict.resume', 'param_dict.dataset_download',
+                      'param_dict.device', 'param_dict.no_prefetcher'])
 def get_acc_and_loss_over_training(param_dict, epochs_idx=slice(None),
                           mode='val', device='cpu'):
     train_out = train.train(param_dict)
@@ -439,22 +454,22 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 def plot_over_epochs(y, df):
-    # ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
-    # ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
-
-    # ps_all = ps_set1 + ps_set2
-    # df = get_compressions_over_training_batch(ps_all, [0, 5, 10, 20, 300, -1],
-                                              # projection='s',
-                                              # device='cpu')
-                                              # # device='cuda')
+    df = df.copy()
+    df['mse_loss']=df['mse_loss'].astype(str)
+    df.loc[df['mse_loss']==True, 'mse_loss'] = 'MSE'
+    df.loc[df['mse_loss']==False, 'mse_loss'] = 'CCE'
+    df = df.rename(columns={'mse_loss': 'loss function'})
+    df['loss function']=df['loss function'].astype('category')
 
     plot_keys = {'dataset', 'epoch', y, 'mode', 'momentum',
-                 'mse_loss', 'opt', 'weight_decay', 'drop', 'layer_idx',
+                 'loss function', 'opt', 'weight_decay', 'drop', 'layer_idx',
                  'layer_name'}
     plot_keys = list(plot_keys.intersection(df.columns))
-    dfn = df[plot_keys]
+    dfn = df[plot_keys].copy()
     dfn.loc[dfn['opt']=='rmsprop','momentum'] = 'rmsprop'
     dfn = dfn.drop(columns='opt')
+    # dfn = dfn[dfn['loss function']<5]
+
     figdir = Path(f'plots/epochs/{y}')
     figdir.mkdir(parents=True, exist_ok=True)
     def plot_dset(dset='torch/mnist'):
@@ -467,9 +482,7 @@ def plot_over_epochs(y, df):
                 (dfn['weight_decay']==0.0)
                )
         df1 = dfn[filt]
-        plots_df(df1, x='epoch', y=y,
-                 hue='drop',
-                 row='mse_loss',
+        plots_df(df1, x='epoch', y=y, hue='drop', row='loss function',
                  col='momentum',
                  figname=figdir/f'{dset_stripped}_sgd_drop.png')
 
@@ -483,9 +496,10 @@ def plot_over_epochs(y, df):
         df1 = dfn[filt]
         plots_df(df1, x='epoch', y=y,
                  hue='weight_decay',
-                 row='mse_loss',
+                 row='loss function',
                  col='momentum',
-                 figname=figdir/f'{dset_stripped}_sgd_weight_decay.png')
+                 # figname=figdir/f'{dset_stripped}_sgd_weight_decay.png')
+                 figname=figdir/f'{dset_stripped}_sgd_weight_decay.pdf')
 
         filt = (
                 (dfn['dataset']==dset) &
@@ -497,9 +511,10 @@ def plot_over_epochs(y, df):
         df1 = dfn[filt]
         plots_df(df1, x='epoch', y=y,
                  hue='drop',
-                 row='mse_loss',
+                 row='loss function',
                  col='momentum',
-                 figname=figdir/f'{dset_stripped}_rmsprop_drop.png')
+                 # figname=figdir/f'{dset_stripped}_rmsprop_drop.png')
+                 figname=figdir/f'{dset_stripped}_rmsprop_drop.pdf')
 
         filt = (
                 (dfn['dataset']==dset) &
@@ -511,9 +526,10 @@ def plot_over_epochs(y, df):
         df1 = dfn[filt]
         plots_df(df1, x='epoch', y=y,
                  hue='weight_decay',
-                 row='mse_loss',
+                 row='loss function',
                  col='momentum',
-                 figname=figdir/f'{dset_stripped}_rmsprop_weight_decay.png')
+                 # figname=figdir/f'{dset_stripped}_rmsprop_weight_decay.png')
+                 figname=figdir/f'{dset_stripped}_rmsprop_weight_decay.pdf')
         filt = (
                 (dfn['dataset']==dset) &
                 # (dfn['opt']=='rmsprop') &
@@ -525,9 +541,10 @@ def plot_over_epochs(y, df):
         df1 = dfn[filt]
         plots_df(df1, x='epoch', y=y,
                  # hue='opt',
-                 col='momentum',
-                 row='mse_loss',
-                 figname=figdir/f'{dset_stripped}_opt_comp.png')
+                 hue='momentum',
+                 col='loss function',
+                 # figname=figdir/f'{dset_stripped}_opt_comp.png')
+                 figname=figdir/f'{dset_stripped}_opt_comp.pdf')
         
     plot_dset('torch/mnist')
     plot_dset('torch/cifar10')
@@ -639,8 +656,8 @@ if __name__ == '__main__':
     fn = train.train
     ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
     ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
-    # ps_set1 = exp.ps_resnet18_mnist_rmsprop
-    # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
+    # ps_set1 = exp.ps_resnet18_mnist_sgd
+    # ps_set2 = exp.ps_resnet18_cifar10_sgd
     # ps_set1 = exp.ps_resnet18_cifar10_rmsprop
     # ps_set2 = exp.ps_resnet18_cifar10_rmsprop
     # ps_set3 = exp.ps_resnet18_cifar100_sgd + exp.ps_resnet18_cifar100_rmsprop
@@ -730,31 +747,37 @@ if __name__ == '__main__':
     # sys.exit()
 
     # plot_over_epochs('compression', df)
-    # df = get_acc_and_loss_over_training(ps_all[run_num-1],
-                                        # epochs_idx=slice(1,None), device='cpu')
+    df = get_acc_and_loss_over_training(ps_all[run_num-1],
+                                        epochs_idx=slice(1,None), device='cuda')
     # df = get_acc_and_loss_over_training(ps_all[run_num-1],
                                         # epochs_idx=[0], device='cuda')
     # df = get_compressions_over_layers(ps_all[run_num-1], [-1], n_batches=10,
                                       # projection='s', device='cpu')
-    # sys.exit()
+    sys.exit()
     # df = get_compressions_over_layers(ps_all[run_num-1], [0], n_batches=10,
                                       # projection='s', device='cpu')
     # for k1, ps in enumerate(ps_all):
         # print(k1+1)
         # df = get_compressions_over_layers(ps, [0], n_batches=10,
                                           # projection='s', device='cpu')
-    # df = get_compressions_over_training(ps_all[run_num-1],
-                                        # layer_id=-2,
-                                        # epochs=[5, 10, 20, 300, 350],
-                                        # # epochs=[0],
-                                        # projection='s',
-                                        # device='cpu')
-                                        # # device='cuda')
-    df = get_acc_and_loss_over_training(ps_all[run_num-1],
-                                        epochs_idx=slice(1,None), device='cpu')
+    # df = get_compressions_over_training(
+        # ps_all[run_num-1], layer_id=-2,
+        # epochs=[0, 5, 10, 20, 50, 100, 150, 200, 250, 300, 350],
+        # # epochs=[0],
+        # projection='s',
+        # # device='cpu')
+        # device='cuda')
+    # df = get_acc_and_loss_over_training(ps_all[run_num-1],
+                                        # epochs_idx=slice(1,None), device='cuda')
+    # df = []
+    # for run_num in range(1, 58):
+        # df += [get_acc_and_loss_over_training(ps_all[run_num-1],
+                                            # epochs_idx=slice(1,None),
+                                              # device='cuda')]
+
     # df = get_acc_and_loss_over_training(ps_all[run_num-1],
                                         # epochs_idx=[0], device='cuda')
-    sys.exit()
+    # sys.exit()
     # # plot_over_epochs('accuracy', df)
     # # plot_over_epochs('loss', df)
     # plot_over_layers('compression', df)
@@ -765,13 +788,15 @@ if __name__ == '__main__':
                   # epochs_idx=[0, -1], n_batches=10, projection='s',
                   # device='cpu')
     # plot_over_layers('compression', df)
-    df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
-                  epochs=[0, 5, 300, 350], projection='s', device='cpu')
-    plot_over_epochs('compression', df)
-    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cpu')
-    plot_over_epochs('accuracy', df)
-    plot_over_epochs('loss', df)
-    sys.exit()
+    # df = batch_fn(get_compressions_over_training, ps_all, layer_id=-2,
+        # epochs=[0, 5, 10, 20, 50, 100, 150, 200, 250, 300, 350],
+                  # epochs=[0, 5, 10, 20, 300, 350],
+                  # projection='s', device='cuda')
+    # plot_over_epochs('compression', df)
+    # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
+    # plot_over_epochs('accuracy', df)
+    # plot_over_epochs('loss', df)
+    # sys.exit()
     # breakpoint()
     # plots_df(df, x='epoch', y='accuracy', figname='temp.pdf')
     # plot_keys = ['dataset', 'epoch', 'compression', 'mode', 'momentum',

@@ -144,8 +144,8 @@ class Memory:
             filename = f'cache.pkl'
             filepath = filedir/filename
             load = filepath.exists()
-            # if load and not self.rerun:
-            if load:
+            if load and not self.rerun:
+            # if load:
                 try:
                     if verbose >= 1:
                         print("Matching parameters for memoized function",

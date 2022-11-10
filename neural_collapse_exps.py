@@ -31,7 +31,7 @@ core_params = dict(
     interpolation='', train_interpolation='',
     checkpoint_every=10, checkpoint_first=10, resume=True,
     workers=1, small_filter=True,
-    no_prefetcher=True, device='cpu',
+    # no_prefetcher=True, device='cpu',
 )
 
 ps_mnist = dict(core_params, data_dir='data', dataset='torch/mnist',
