@@ -49,54 +49,63 @@ ps_imagenet = dict(core_params,
     dataset='imagenet')
 
 
+# sgd_incr_fact = 5
+sgd_incr_fact = 10
+# weight_decays = (0, 5e-4, 1e-3, 1e-2)
+# drops = (.2, .4)
+weight_decays = (0,)
+momentums = (0, .4, .9)
+# drops = (.2, .4)
+drops = (0,)
 ps_sgd = []
 ps_sgd.append(dict(
     opt=('momentum',),
-    lr=(0.0184,),
+    lr=(0.0184*sgd_incr_fact,),
     mse_loss=(True,),
-    momentum=(0, .4, .9),
-    weight_decay=(0, 5e-4, 1e-3, 1e-2),
+    momentum=momentums,
+    weight_decay=weight_decays,
 ))
 ps_sgd.append(dict(
     opt=('momentum',),
-    lr=(0.0679,),
+    lr=(0.0679*sgd_incr_fact,),
     mse_loss=(False,),
-    momentum=(0, .4, .9),
-    weight_decay=(0, 5e-4, 1e-3, 1e-2),
+    momentum=momentums,
+    weight_decay=weight_decays,
 ))
 ps_sgd.append(dict(
     opt=('momentum',),
-    lr=(0.0184,),
+    lr=(0.0184*sgd_incr_fact,),
     mse_loss=(True,),
-    momentum=(0, .4, .9),
-    drop=(.2, .4),
+    momentum=momentums,
+    drop=drops,
 ))
 ps_sgd.append(dict(
     opt=('momentum',),
-    lr=(0.0679,),
+    lr=(0.0679*sgd_incr_fact,),
     mse_loss=(False,),
-    momentum=(0, .4, .9),
-    drop=(.2, .4),
+    momentum=momentums,
+    drop=drops,
 ))
 ps_sgd_list = []
 for ps in ps_sgd:
     ps_sgd_list += product_dict(ps)
 # ps_sgd_list = product_dict(ps_sgd2)
 # rmsprop_red_fact = 4
-rmsprop_red_fact = 10
+# rmsprop_red_fact = 10
+rmsprop_red_fact = 20
 # rmsprop_red_fact = 2
 ps_rmsprop = []
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
     lr=(0.0184/rmsprop_red_fact,),
     mse_loss=(True,),
-    weight_decay=(0, 5e-4, 1e-3, 1e-2),
+    weight_decay=weight_decays,
 ))
 ps_rmsprop.append(dict(
     opt=('rmsprop',),
     lr=(0.0679/rmsprop_red_fact,),
     mse_loss=(False,),
-    weight_decay=(0, 5e-4, 1e-3, 1e-2),
+    weight_decay=weight_decays,
 ))
 # ps_rmsprop.append(dict(
     # opt=('rmsprop',),

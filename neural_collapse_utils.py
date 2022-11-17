@@ -97,46 +97,46 @@ def pairwise_class_dists(X, y, breakv=False):
     # return d_within.item(), d_across.item()
 
 
-# def get_compressions(feat_extractor, loader, run_dir, n_batches):
-    # data_size = len(loader)
-    # feat_col = []
-    # labels_col = []
-    # d_within = []
-    # d_across = []
-    # inpdata = []
-    # labels = []
-    # out_inputs = []
-    # within_inputs = []
-    # across_inputs = []
-    # print("Reminder to check layer orderings.")
-    # for k1, (inpdata_batch, labels_batch) in enumerate(loader):
-        # inpdata += [inpdata_batch]
-        # labels += [labels_batch]
-        # if (k1 + 1) % n_batches == 0:
-            # inpdata = torch.cat(inpdata, dim=0)
-            # labels = torch.cat(labels, dim=0)
-            # # features = feat_extractor(inpdata)
-            # featt = feat_extractor(inpdata)
-            # features = featt.values()
-            # features = [feat.data.squeeze() for feat in features]
-            # breakv = k1 >= len(loader)-1
-            # out_layers = [within_over_across_class_mean_dist(feat, labels,
-                                                             # breakv=breakv) for
-                          # feat in features]
-            # within_layers = [o[0] for o in out_layers]
-            # across_layers = [o[1] for o in out_layers]
+def get_compressions(feat_extractor, loader, run_dir, n_batches):
+    data_size = len(loader)
+    feat_col = []
+    labels_col = []
+    d_within = []
+    d_across = []
+    inpdata = []
+    labels = []
+    out_inputs = []
+    within_inputs = []
+    across_inputs = []
+    print("Reminder to check layer orderings.")
+    for k1, (inpdata_batch, labels_batch) in enumerate(loader):
+        inpdata += [inpdata_batch]
+        labels += [labels_batch]
+        if (k1 + 1) % n_batches == 0:
+            inpdata = torch.cat(inpdata, dim=0).cpu()
+            labels = torch.cat(labels, dim=0).cpu()
+            # features = feat_extractor(inpdata)
+            featt = feat_extractor(inpdata)
+            features = featt.values()
+            features = [feat.data.squeeze() for feat in features]
+            breakv = k1 >= len(loader)-1
+            out_layers = [within_over_across_class_mean_dist(feat, labels,
+                                                             breakv=breakv) for
+                          feat in features]
+            within_layers = [o[0] for o in out_layers]
+            across_layers = [o[1] for o in out_layers]
             
-            # within_inputs += [within_layers]
-            # across_inputs += [across_layers]
-            # inpdata = []
-            # labels = []
-    # d_within = zip(*within_inputs)
-    # d_across = zip(*across_inputs)
+            within_inputs += [within_layers]
+            across_inputs += [across_layers]
+            inpdata = []
+            labels = []
+    d_within = zip(*within_inputs)
+    d_across = zip(*across_inputs)
 
-    # d_within_avgs = torch.tensor([vmean(d) for d in d_within])
-    # d_across_avgs = torch.tensor([vmean(d) for d in d_across])
-    # compression = d_within_avgs / d_across_avgs
-    # return compression
+    d_within_avgs = torch.tensor([vmean(d) for d in d_within])
+    d_across_avgs = torch.tensor([vmean(d) for d in d_across])
+    compression = d_within_avgs / d_across_avgs
+    return compression
 
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
@@ -260,7 +260,7 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches_per,
                     print(f"Layer {k2}, feature: {feat.shape}")
                     # ticf = time.time()
                     tic1 = time.time()
-                    ds = pairwise_class_dists(feat, labels)
+                    ds = pairwise_class_dists(feat, labels.cpu())
                     toc1 = time.time()
                     tdiff_d.append(toc1-tic1)
                     m = ds.shape[0]
@@ -290,7 +290,7 @@ def get_dists_projected(feat_extractor, loader, run_dir, n_batches_per,
                     tic1 = time.time()
                     for k3 in range(m):
                         ds_aligned = pairwise_class_dists(
-                            feat_aligned[k3], labels)
+                            feat_aligned[k3], labels.cpu())
                         ds_aligned_ratio = ds_aligned / ds
                         ds_orth_ratio = 1 - ds_aligned_ratio
                         ds_within_aligned.append(torch.nanmean(

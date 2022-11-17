@@ -557,10 +557,10 @@ def train(args_set_dict):
         for f in files:
             os.remove(f)
     elif not run_exists:
-        print()
-        print("No previous runs encountered. Training from scratch.")
-        print("Saving output to:")
-        print(run_dir)
+        # print()
+        # print("No previous runs encountered. Training from scratch.")
+        # print("Saving output to:")
+        # print(run_dir)
         print()
     resume_epoch = None
     if args.resume:
