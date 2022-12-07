@@ -52,11 +52,12 @@ ps_imagenet = dict(core_params,
 # sgd_incr_fact = 5
 sgd_incr_fact = 10
 # weight_decays = (0, 5e-4, 1e-3, 1e-2)
-# drops = (.2, .4)
-weight_decays = (0,)
+# weight_decays = (0,)
+weight_decays = (1e-4,)
 momentums = (0, .4, .9)
 # drops = (.2, .4)
-drops = (0,)
+drops = (.2,)
+# drops = (0,)
 ps_sgd = []
 ps_sgd.append(dict(
     opt=('momentum',),
@@ -94,6 +95,7 @@ for ps in ps_sgd:
 # rmsprop_red_fact = 10
 rmsprop_red_fact = 20
 # rmsprop_red_fact = 2
+# weight_decays=(0, 1e-4)
 ps_rmsprop = []
 ps_rmsprop.append(dict(
     opt=('rmsprop',),

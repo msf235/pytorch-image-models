@@ -71,33 +71,33 @@ def pairwise_class_dists(X, y, breakv=False):
                 ds[k1, k2] = torch.mean(d)
     return ds 
 
-# def within_over_across_class_mean_dist(X, y, breakv=False):
-    # cs = set(y.tolist())
-    # m = len(cs)
-    # ds = torch.zeros(m,m)
-    # for k1 in range(m):
-        # for k2 in range(k1, m):
-            # xk1 = X[y == k1]
-            # xk1 = xk1.reshape(1, xk1.shape[0], -1) 
-            # xk2 = X[y == k2]
-            # xk2 = xk2.reshape(1, xk2.shape[0], -1) 
-            # d = torch.cdist(xk1, xk2)[0]
-            # r1 = d.shape[0]
-            # r2 = d.shape[1]
-            # if k1 == k2:
-                # ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
-            # else:
-                # ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
-            # # if ds[k1, k2] == torch.nan:
-                # # breakpoint()
+def within_over_across_class_mean_dist(X, y, breakv=False):
+    cs = set(y.tolist())
+    m = len(cs)
+    ds = torch.zeros(m,m)
+    for k1 in range(m):
+        for k2 in range(k1, m):
+            xk1 = X[y == k1]
+            xk1 = xk1.reshape(1, xk1.shape[0], -1) 
+            xk2 = X[y == k2]
+            xk2 = xk2.reshape(1, xk2.shape[0], -1) 
+            d = torch.cdist(xk1, xk2)[0]
+            r1 = d.shape[0]
+            r2 = d.shape[1]
+            if k1 == k2:
+                ds[k1, k2] = torch.sum(torch.triu(d,1)) / ((r1-1)*(r2-1)/2)
+            else:
+                ds[k1, k2] = torch.sum(torch.triu(d,0)) / (r1*r2/2)
+            # if ds[k1, k2] == torch.nan:
+                # breakpoint()
             
-    # d_within = torch.nanmean(torch.diag(ds))
-    # d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
+    d_within = torch.nanmean(torch.diag(ds))
+    d_across = torch.sum(torch.triu(ds, 1)) / ((m-1)**2/2)
 
-    # return d_within.item(), d_across.item()
+    return d_within.item(), d_across.item()
 
 
-def get_compressions(feat_extractor, loader, run_dir, n_batches):
+def get_compressions(feat_extractor, loader, run_dir, n_batches_per, n_batches):
     data_size = len(loader)
     feat_col = []
     labels_col = []
@@ -112,11 +112,17 @@ def get_compressions(feat_extractor, loader, run_dir, n_batches):
     for k1, (inpdata_batch, labels_batch) in enumerate(loader):
         inpdata += [inpdata_batch]
         labels += [labels_batch]
-        if (k1 + 1) % n_batches == 0:
-            inpdata = torch.cat(inpdata, dim=0).cpu()
-            labels = torch.cat(labels, dim=0).cpu()
+        if (k1 + 1) % n_batches_per == 0 or (k1 + 1) % n_batches == 0:
+            print(str(k1)+ '/' + str(n_batches))
+            tic = time.time()
+            # inpdata = torch.cat(inpdata, dim=0).cpu()
+            # labels = torch.cat(labels, dim=0).cpu()
+            inpdata = torch.cat(inpdata, dim=0)
+            labels = torch.cat(labels, dim=0)
             # features = feat_extractor(inpdata)
             featt = feat_extractor(inpdata)
+            toc = time.time()
+            print(f"elapsed: {toc-tic}")
             features = featt.values()
             features = [feat.data.squeeze() for feat in features]
             breakv = k1 >= len(loader)-1
@@ -130,6 +136,8 @@ def get_compressions(feat_extractor, loader, run_dir, n_batches):
             across_inputs += [across_layers]
             inpdata = []
             labels = []
+        if (k1 + 1) % n_batches == 0:
+            break
     d_within = zip(*within_inputs)
     d_across = zip(*across_inputs)
 
