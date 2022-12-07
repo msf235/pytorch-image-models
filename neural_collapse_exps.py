@@ -190,7 +190,20 @@ ps_resnet18_cifar100_sgd_rmsprop_comb = [
 
 ps_resnet152_imagenet = dict(ps_imagenet, model='resnet152')
 ps_resnet152_imagenet['small_filter'] = False
+ps_resnet152_imagenet['dataset_download'] = False
 ps_resnet152_imagenet_pretrain = ps_resnet152_imagenet
+ps_resnet152_imagenet_pretrain.update(
+    dict(
+    checkpoint_hist=10,
+    dataset_download=False, cooldown_epochs=10,
+    smoothing=0.1, sched='cosine', decay_rate=0.1,
+    epochs=0, decay_epochs=100,
+    batch_size=128, weight_decay=2e-5, momentum=0.9,
+    interpolation='', train_interpolation='',
+    checkpoint_every=None, checkpoint_first=None, resume=False,
+    workers=1, small_filter=False,
+    )
+)
 ps_resnet152_imagenet_sgd = [
     dict(ps_resnet152_imagenet, **d) for d in ps_sgd_list
 ]
