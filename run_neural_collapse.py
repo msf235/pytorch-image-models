@@ -678,9 +678,10 @@ def plot_over_layers(y, df):
 
 if __name__ == '__main__':
     fn = train.train
-    ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
-    ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
-    ps_all = ps_set1 + ps_set2
+    # ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
+    # ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
+    # ps_all = ps_set1 + ps_set2
+    ps_all = exp.ps_resnet152_imagenet_rmsprop
     # ps_all = ps_set1
     print(run_num)
     if run_num is not None and run_num > len(ps_all):

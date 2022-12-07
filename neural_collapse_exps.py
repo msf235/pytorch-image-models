@@ -189,6 +189,8 @@ ps_resnet18_cifar100_sgd_rmsprop_comb = [
 ]
 
 ps_resnet152_imagenet = dict(ps_imagenet, model='resnet152')
+ps_resnet152_imagenet['small_filter'] = False
+ps_resnet152_imagenet_pretrain = ps_resnet152_imagenet
 ps_resnet152_imagenet_sgd = [
     dict(ps_resnet152_imagenet, **d) for d in ps_sgd_list
 ]
