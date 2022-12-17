@@ -1,15 +1,16 @@
 import torch
 from pathlib import Path
 import model_output_manager as mom
-
+import re
+import os
 import traceback
 import warnings
 import sys
 
-checkpnt_str = 'checkpoint-epoch-*.pth'
+checkpnt_str = 'checkpoint-epoch'
 
-def extract_epoch(checkpnt_str):
-    return int(str(checkpnt_str).split('-')[2][:-4])
+def extract_epoch(checkpnt_str, start_str=None):
+    return int(str(checkpnt_str).split('-')[-1][:-4])
 
 def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
     log = file if hasattr(file, 'write') else sys.stderr
@@ -63,7 +64,10 @@ def load_model(model, filename, optimizer=None, learning_scheduler=None,
     # if learning_scheduler is not None:
         # learning_scheduler.load_state_dict(model_state_info['learning_scheduler_state_dict'])
 
-def get_epochs(out_dir):
+def glob_re(pattern, strings):
+    return filter(re.compile(pattern).match, strings)
+
+def get_epochs(out_dir, checkpnt_str=checkpnt_str):
     """
     Get a list of all the epochs and saves in the current directory.
 
@@ -80,9 +84,11 @@ def get_epochs(out_dir):
         list of saves for each epoch
     """
     out_dir = Path(out_dir)
-    ps = Path(out_dir).glob(checkpnt_str)
-    epochs = sorted(list({extract_epoch(p.parts[-1]) for p in ps}))
+    res = [f for f in os.listdir(out_dir)
+           if re.search(r'{}-\d+.pth'.format(checkpnt_str), f)]
+    epochs = [int(r.split('-')[-1][:-4]) for r in res]
     return epochs
+
 
 def get_max_epoch(out_dir):
     """

@@ -455,6 +455,25 @@ def train(args_set_dict):
         checkpoint_path=args.initial_checkpoint,
         in_chans=in_chans
     )
+    if args.pretrained:
+        model_init = create_model(
+            args.model,
+            pretrained=False,
+            num_classes=args.num_classes,
+            drop_rate=args.drop,
+            drop_connect_rate=args.drop_connect,  # DEPRECATED, use drop_path
+            drop_path_rate=args.drop_path,
+            drop_block_rate=args.drop_block,
+            inj_noise_std=args.inj_noise_std,
+            global_pool=args.gp,
+            bn_momentum=args.bn_momentum,
+            bn_eps=args.bn_eps,
+            scriptable=args.torchscript,
+            checkpoint_path=args.initial_checkpoint,
+            in_chans=in_chans
+        )
+    else:
+        model_init = model
     if args.small_filter:
         model.conv1 = nn.Conv2d(in_chans, model.conv1.weight.shape[0], 3, 1, 1,
                                 bias=False)
@@ -610,16 +629,14 @@ def train(args_set_dict):
 
     # create the train and eval datasets
     dataset_train = create_dataset(
-        args.dataset, root=args.data_dir, split=args.train_split, is_training=True,
-        class_map=args.class_map,
-        download=args.dataset_download,
-        batch_size=args.batch_size,
+        args.dataset, root=args.data_dir, split=args.train_split,
+        is_training=True, class_map=args.class_map,
+        download=args.dataset_download, batch_size=args.batch_size,
         repeats=args.epoch_repeats)
     dataset_eval = create_dataset(
-        args.dataset, root=args.data_dir, split=args.val_split, is_training=False,
-        class_map=args.class_map,
-        download=args.dataset_download,
-        batch_size=args.batch_size)
+        args.dataset, root=args.data_dir, split=args.val_split,
+        is_training=False, class_map=args.class_map,
+        download=args.dataset_download, batch_size=args.batch_size)
 
     # setup mixup / cutmix
     collate_fn = None
@@ -627,9 +644,11 @@ def train(args_set_dict):
     mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
     if mixup_active:
         mixup_args = dict(
-            mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
-            prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
-            label_smoothing=args.smoothing, num_classes=args.num_classes)
+            mixup_alpha=args.mixup, cutmix_alpha=args.cutmix,
+            cutmix_minmax=args.cutmix_minmax,
+            prob=args.mixup_prob, switch_prob=args.mixup_switch_prob,
+            mode=args.mixup_mode, label_smoothing=args.smoothing,
+            num_classes=args.num_classes)
         if args.prefetcher:
             assert not num_aug_splits  # collate conflict (need to support deinterleaving in collate mixup)
             collate_fn = FastCollateMixup(**mixup_args)
@@ -743,12 +762,25 @@ def train(args_set_dict):
         checkpoint_offset = args.checkpoint_first
     else:
         checkpoint_offset = 0
-    if args.checkpoint_every is not None and start_epoch==0:
+    # if args.checkpoint_every is not None and start_epoch==0:
+    if args.pretrained:
+        chkpnt_str = '-pretrained'
         state_dict = get_state_dict(model)
-        savedict = dict(epoch=0, arch=type(model).__name__.lower(),
-                        state_dict=state_dict, optimizer=optimizer.state_dict(),
+        savedict = dict(epoch=start_epoch,
+                        arch=type(model).__name__.lower(),
+                        state_dict=state_dict,
+                        optimizer=optimizer.state_dict(),
                         version=2, args=args)
-        torch.save(savedict, run_dir/f'checkpoint-epoch-0.pth')
+        torch.save(savedict,
+                   run_dir/f'checkpoint-epoch-pretrained-{start_epoch}.pth')
+    else:
+        chkpnt_str = ''
+    state_dict = get_state_dict(model_init)
+    savedict = dict(epoch=0, arch=type(model_init).__name__.lower(),
+                    state_dict=state_dict,
+                    optimizer=optimizer.state_dict(),
+                    version=2, args=args)
+    torch.save(savedict, run_dir/'checkpoint-epoch-0.pth')
     try:
         for epoch in range(start_epoch, num_epochs):
             if args.distributed and hasattr(loader_train.sampler, 'set_epoch'):
@@ -757,7 +789,8 @@ def train(args_set_dict):
             train_metrics = train_one_epoch(
                 epoch, model, loader_train, optimizer, train_loss_fn, args,
                 lr_scheduler=lr_scheduler, saver=saver, output_dir=run_dir,
-                amp_autocast=amp_autocast, loss_scaler=loss_scaler, model_ema=model_ema, mixup_fn=mixup_fn)
+                amp_autocast=amp_autocast, loss_scaler=loss_scaler,
+                model_ema=model_ema, mixup_fn=mixup_fn)
 
             if args.distributed and args.dist_bn in ('broadcast', 'reduce'):
                 if args.local_rank == 0:
@@ -779,13 +812,16 @@ def train(args_set_dict):
 
             if output_dir is not None:
                 update_summary(
-                    epoch, train_metrics, eval_metrics, os.path.join(run_dir, 'summary.csv'),
-                    write_header=best_metric is None, log_wandb=args.log_wandb and has_wandb)
+                    epoch, train_metrics, eval_metrics,
+                    os.path.join(run_dir, 'summary.csv'),
+                    write_header=best_metric is None,
+                    log_wandb=args.log_wandb and has_wandb)
 
             if saver is not None:
                 # save proper checkpoint with eval metric
                 save_metric = eval_metrics[eval_metric]
-                best_metric, best_epoch = saver.save_checkpoint(epoch+1, metric=save_metric)
+                best_metric, best_epoch = saver.save_checkpoint(
+                    epoch+1, metric=save_metric)
 
             if epoch > args.checkpoint_first - 1:
                 if (epoch + 1 - checkpoint_offset) % args.checkpoint_every == 0:
@@ -797,7 +833,7 @@ def train(args_set_dict):
                                     version=2, args=args,
                                     metric=eval_metrics[eval_metric])
                     torch.save(savedict,
-                               run_dir/f'checkpoint-epoch-{epoch+1}.pth')
+                        run_dir/f'checkpoint-epoch{chkpnt_str}-{epoch+1}.pth')
             else:
                 state_dict = get_state_dict(model)
                 savedict = dict(epoch=epoch+1,
@@ -807,7 +843,7 @@ def train(args_set_dict):
                                 version=2, args=args,
                                 metric=eval_metrics[eval_metric])
                 torch.save(savedict,
-                           run_dir/f'checkpoint-epoch-{epoch+1}.pth')
+                       run_dir/f'checkpoint-epoch{chkpnt_str}-{epoch+1}.pth')
 
     except KeyboardInterrupt:
         pass

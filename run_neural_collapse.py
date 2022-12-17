@@ -256,10 +256,8 @@ def get_compressions_over_training(param_dict, epochs=None, layer_id=-2,
 @memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
                       'param_dict.resume', 'param_dict.dataset_download',
                       'param_dict.device', 'param_dict.no_prefetcher'])
-def get_compressions_over_layers(param_dict, epochs_idx,
-                                 layer_ids=slice(None),
-                                 n_batches_per=n_batches_per,
-                                 n_batches=None,
+def get_compressions_over_layers(param_dict, epochs_idx, layer_ids=slice(None),
+                                 n_batches_per=n_batches_per, n_batches=None,
                                  projection=None, n_samples=None, mode='val',
                                  device='cpu'):
     train_out = train.train(param_dict)
@@ -407,9 +405,9 @@ def get_acc_and_loss(param_dict, epoch, mode='val', device='cpu'):
     return df
 
 
-@memory.cache(ignore=['device', 'param_dict.output', 'param_dict.workers',
-                      'param_dict.resume', 'param_dict.dataset_download',
-                      'param_dict.device', 'param_dict.no_prefetcher'])
+# @memory.cache(ignore=['device', 'param_dict.output', 'param_dict.workers',
+                      # 'param_dict.resume', 'param_dict.dataset_download',
+                      # 'param_dict.device', 'param_dict.no_prefetcher'])
 def get_acc_and_loss_over_training(param_dict, epochs_idx=slice(None),
                           mode='val', device='cpu'):
     train_out = train.train(param_dict)
@@ -678,10 +676,10 @@ def plot_over_layers(y, df):
 
 if __name__ == '__main__':
     fn = train.train
-    # ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
-    # ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
-    # ps_all = ps_set1 + ps_set2
-    ps_all = exp.ps_resnet152_imagenet_rmsprop
+    ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
+    ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
+    ps_all = ps_set1 + ps_set2
+    # ps_all = [exp.ps_resnet152_imagenet_pretrain]
     # ps_all = ps_set1
     print(run_num)
     if run_num is not None and run_num > len(ps_all):
@@ -694,20 +692,26 @@ if __name__ == '__main__':
                                         # # # projection='s',
                                         # # # device='cpu')
                                         # # device='cuda')
+    df = get_compressions_over_layers(ps_all[run_num], [0, -1],
+                  device='cpu')
     # sys.exit()
 
-    df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
-    plot_over_epochs('accuracy', df, 'accuracy')
-    df = batch_fn(get_compressions_over_training, ps_all, 
-                  epochs=[0, 5, 10, 20, -1],
-                  n_batches_per=4,
-                  device='cuda')
-    plot_over_epochs('compression', df, 'compression')
-    df = batch_fn(get_compressions_over_training, ps_all, 
-                  epochs=[0, 5, 10, 20, -1],
-                  n_batches_per=4,
-                  projection='s',
-                  device='cuda')
-    plot_over_epochs('compression', df, 'compression_proj')
-    sys.exit()
+    # df = batch_fn(get_acc_and_loss_over_training, ps_all, device='cuda')
+    # plot_over_epochs('accuracy', df, 'accuracy')
+    # df = batch_fn(get_compressions_over_training, ps_all, 
+                  # epochs=[0, 5, 10, 20, -1],
+                  # n_batches_per=4,
+                  # device='cuda')
+    # plot_over_epochs('compression', df, 'compression')
+    # df = batch_fn(get_compressions_over_training, ps_all, 
+                  # epochs=[0, 5, 10, 20, -1],
+                  # n_batches_per=4,
+                  # projection='s',
+                  # device='cuda')
+    # plot_over_epochs('compression', df, 'compression_proj')
+    # sys.exit()
+
+    # df = batch_fn(get_compressions_over_layers, ps_all, [0, -1],
+                  # device='cpu')
+                  # device='cuda')
 

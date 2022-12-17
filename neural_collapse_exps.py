@@ -196,12 +196,13 @@ ps_resnet152_imagenet_pretrain.update(
     dict(
     checkpoint_hist=10,
     dataset_download=False, cooldown_epochs=10,
-    smoothing=0.1, sched='cosine', decay_rate=0.1,
+    smoothing=0.1, sched=None, decay_rate=0.1,
+    start_epoch=0,
     epochs=0, decay_epochs=100,
     batch_size=128, weight_decay=2e-5, momentum=0.9,
     interpolation='', train_interpolation='',
     checkpoint_every=None, checkpoint_first=None, resume=False,
-    workers=1, small_filter=False,
+    workers=1, small_filter=False, pretrained=True,
     )
 )
 ps_resnet152_imagenet_sgd = [
