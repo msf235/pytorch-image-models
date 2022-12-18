@@ -637,9 +637,6 @@ def train(args_set_dict):
         args.dataset, root=args.data_dir, split=args.val_split,
         is_training=False, class_map=args.class_map,
         download=args.dataset_download, batch_size=args.batch_size)
-    sort_idx = torch.argsort(torch.tensor(dataset_eval.targets))
-    dataset_eval.data = dataset_eval.data[sort_idx]
-    dataset_eval.targets = dataset_eval.targets[sort_idx]
 
     # setup mixup / cutmix
     collate_fn = None
