@@ -65,6 +65,39 @@ n_jobs = 4
 # run_num = args.run_num
 outdir = exp.core_params['output']
 
+def evenly_distributed_label_idx(dataset, dataset_indices, num_samples):
+    # data_idx = torch.randperm(len(dataset))[:num_samples]
+    n = len(set(dataset.targets))
+    # num_labels = params['num_classes']
+
+    import numpy as np
+    # Y = torch.tensor([x[1] for x in dataset])
+    # num_samples_per_label_in_data = torch.sum(Y==0)
+    # num_samples_per_label_in_data = torch.sum(
+    #     torch.tensor(dataset.targets) == dataset.targets[0]).item()
+    # m = int(num_samples_per_label_in_data*num_samples/len(dataset))
+    # r = int(len(dataset)/num_samples_per_label_in_data)
+    # if m == 0:
+    #     data_idx = num_samples_per_label_in_data*np.arange(num_samples)
+    # else:
+    #     data_idx = []
+    #     for k in range(m+1):
+    #         data_idx.extend(k+num_samples_per_label_in_data*np.arange(r))
+    #     data_idx = data_idx[:num_samples]
+    #     return data_idx
+
+    num_samples_per_label_in_data = torch.sum(
+        torch.tensor(dataset.targets) == dataset.targets[0]).item()
+    m = int(num_samples_per_label_in_data*num_samples/len(dataset_indices))
+    r = int(len(dataset_indices)/num_samples_per_label_in_data)
+    if m == 0:
+        data_idx = num_samples_per_label_in_data*torch.arange(num_samples)
+    else:
+        data_idx = []
+        for k in range(m+1):
+            data_idx.extend(k+num_samples_per_label_in_data*torch.arange(r))
+        data_idx = data_idx[:num_samples]
+    return data_idx
 
 # @memory.cache(ignore=['train_out'])
 # def get_compressions_cached(param_dict, epoch, layer_ids, n_batches=n_batches,
@@ -72,9 +105,9 @@ outdir = exp.core_params['output']
     # return get_compressions(param_dict=param_dict, epoch=epoch,
                             # layer_ids=layer_ids, n_batches=n_batches,
                             # train_out=train_out)
-@memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
-                      'param_dict.resume', 'param_dict.dataset_download',
-                      'param_dict.device', 'param_dict.no_prefetcher'])
+# @memory.cache(ignore=['train_out', 'device', 'param_dict.output', 'param_dict.workers',
+                      # 'param_dict.resume', 'param_dict.dataset_download',
+                      # 'param_dict.device', 'param_dict.no_prefetcher'])
 def get_dists_projected(param_dict, epoch, layer_ids,
                         n_batches_per=n_batches_per, n_batches=None,
                         n_samples=None, lin_class_its=50, mode='val',
@@ -82,6 +115,23 @@ def get_dists_projected(param_dict, epoch, layer_ids,
     if mode != 'val' or n_samples is not None:
         raise AttributeError('Not implemented yet')
     model, loader_train, loader_val, run_dir, pd_mom = train_out
+
+    if params['num_classes'] != 'na':
+        indices_for_classes_train = torch.where(
+            torch.tensor(dataset.targets) < params['num_classes'])[0]
+    else:
+        indices_for_classes_train = torch.arange(len(dataset.targets))
+    # subset_indices = indices_for_classes_train[
+    #     torch.randperm(len(indices_for_classes_train))[:NUM_SAMPLES]]
+    breakpoint()
+
+    data_idx = evenly_distributed_label_idx(dataset, indices_for_classes_train, NUM_SAMPLES)
+    indices_for_classes_train = indices_for_classes_train[data_idx]
+
+    X = torch.stack([dataset[x][0] for x in indices_for_classes_train]).type(torch.float32).to(device)
+    Y = torch.tensor([dataset[x][1] for x in indices_for_classes_train]).to(device)
+
+    breakpoint()
     # fe = model
     nodes, __ = fe.get_graph_node_names(model)
     load_utils.load_model_from_epoch_and_dir(model, run_dir, epoch,
@@ -679,6 +729,8 @@ if __name__ == '__main__':
     ps_set1 = exp.ps_resnet18_mnist_sgd + exp.ps_resnet18_mnist_rmsprop
     ps_set2 = exp.ps_resnet18_cifar10_sgd + exp.ps_resnet18_cifar10_rmsprop
     ps_all = ps_set1 + ps_set2
+    for ps in ps_all:
+        ps['device'] = 'cpu'
     # ps_all = [exp.ps_resnet152_imagenet_pretrain]
     # ps_all = ps_set1
     print(run_num)
